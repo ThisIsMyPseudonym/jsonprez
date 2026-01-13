@@ -727,9 +727,6 @@ function extractTextAdvanced(textElements) {
     // Pending paragraph marker to apply to the next text runs
     let pendingMarker = null;
 
-    // State for inheritance across paragraphs
-    let currentIndentStart = undefined;
-    let currentIndentFirstLine = undefined;
 
     // Helper to convert units to points
     const getPt = (prop) => {
@@ -742,22 +739,10 @@ function extractTextAdvanced(textElements) {
         const ps = marker.style || {};
         const bullet = marker.bullet;
 
-        // Update inheritance state
-        const explicitIndentStart = getPt(ps.indentStart);
-        if (explicitIndentStart !== undefined) {
-            currentIndentStart = explicitIndentStart;
-        }
-
-        const explicitIndentFirst = getPt(ps.indentFirstLine);
-        if (explicitIndentFirst !== undefined) {
-            currentIndentFirstLine = explicitIndentFirst;
-        }
-
-        // Adjust firstLine for non-bullet paragraphs with inherited hanging indent
-        let effectiveFirstLine = currentIndentFirstLine;
-        if (!bullet && (currentIndentStart > currentIndentFirstLine)) {
-            effectiveFirstLine = currentIndentStart;
-        }
+        // Use explicit values only - don't inherit from previous paragraphs
+        // undefined means "use default (0pt)", not "inherit from previous"
+        const indentStart = getPt(ps.indentStart);
+        const indentFirstLine = getPt(ps.indentFirstLine);
 
         const pStyle = {
             align: mapAlignmentAdvanced(ps.alignment),
@@ -766,8 +751,8 @@ function extractTextAdvanced(textElements) {
             spaceAbove: getPt(ps.spaceAbove),
             spaceBelow: getPt(ps.spaceBelow),
             lineSpacing: ps.lineSpacing || 100,
-            indentStart: currentIndentStart,
-            indentFirstLine: effectiveFirstLine
+            indentStart: indentStart,
+            indentFirstLine: indentFirstLine
         };
 
         let bulletData = null;
