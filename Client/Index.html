@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <title>Slides Engine</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- CodeMirror (Editor) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
+    <!-- Note: CodeMirror 6 is modular. For simplicity in GAS, we might use CM5 or a bundled CM6. 
+         Let's stick to CM5 CDN for easiest 'drop-in' single file support unless we use a bundler. 
+         CM5 is robust. -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/lint/lint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/lint/json-lint.min.js"></script>
+    <!-- JSONLint for validation support in CM5 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsonlint/1.6.0/jsonlint.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/lint/lint.min.css">
+
+    <!-- Toastify -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+    <?!= include('Client/Styles'); ?>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <div class="brand">
+                <div class="brand-icon">✨</div>
+                <div class="brand-text">
+                    <h1>SlidesEngine <span>Orion v7.12</span></h1>
+                </div>
+            </div>
+            <div class="actions flex gap-2">
+                <button onclick="openShortcuts()" class="btn btn-glass" title="Keyboard Shortcuts">⌨️</button>
+                <a href="https://github.com/matthewmarshall/jsonprez" target="_blank" class="btn btn-glass"
+                    style="text-decoration:none;">GitHub</a>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <div class="workspace">
+            <!-- Left Panel: Editor -->
+            <div class="panel panel-left">
+                <div class="toolbar">
+                    <span class="toolbar-title">JSON Configuration</span>
+                    <div class="flex gap-2">
+                        <button onclick="copyToClipboard()" class="btn btn-glass hover-primary"
+                            style="padding: 4px 10px; font-size: 11px;" title="Copy JSON">
+                            📋 Copy
+                        </button>
+                        <button onclick="formatJSON()" class="btn btn-glass hover-primary"
+                            style="padding: 4px 10px; font-size: 11px;">
+                            Format
+                        </button>
+                        <select id="templateSelector" onchange="loadTemplate(this.value)" class="input-field"
+                            style="padding: 4px; font-size: 11px; width: auto;">
+                            <option value="" disabled selected>Load Template...</option>
+                            <option value="simple">Simple</option>
+                            <option value="themed">Themed</option>
+                            <option value="testbench">Component Test</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="editor-container">
+                    <!-- CodeMirror injects here -->
+                    <textarea id="jsonInput" style="display:none;"></textarea>
+                </div>
+            </div>
+
+            <!-- Right Panel: Preview -->
+            <div class="panel panel-right">
+                <div class="preview-stage">
+                    <!-- DOM Preview Container -->
+                    <div class="canvas-frame">
+                        <div id="previewContainer"></div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="preview-controls">
+                        <button class="btn btn-icon btn-glass" onclick="prevSlide()" title="Previous Slide">←</button>
+                        <span id="slideCounter"
+                            style="font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; min-width: 80px; text-align: center; color: var(--text-muted); font-size: 14px;">
+                            Slide 1 / 1
+                        </span>
+                        <button class="btn btn-icon btn-glass" onclick="nextSlide()" title="Next Slide">→</button>
+                    </div>
+
+                    <!-- Main Actions -->
+                    <div class="flex items-center justify-center gap-4" style="margin-top: auto;">
+                        <button id="importBtn" onclick="openImportModal()" class="btn btn-glass">
+                            ⬇ Import Slide
+                        </button>
+                        <button id="generateBtn" onclick="generatePresentation()" class="btn btn-primary"
+                            style="min-width: 200px;">
+                            ▶ Generate Deck
+                        </button>
+                    </div>
+
+                    <div id="resultContainer" style="width: 100%; display: flex; justify-content: center;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="processingOverlay" class="processing-overlay">
+        <div class="loader-ring"></div>
+        <div id="processingMsg" class="processing-text">Working...</div>
+        <div class="processing-subtext">Please wait while we process your request</div>
+    </div>
+
+    <div id="importModal" class="modal-overlay">
+        <div class="modal">
+            <h3 class="modal-title">Import Presentation</h3>
+            <p class="modal-desc">Enter the Google Slides ID to convert it to JSON.</p>
+
+            <input type="text" id="importId" class="input-field" placeholder="Presentation ID (e.g. 1AbC...)"
+                style="margin-bottom: 12px;">
+
+            <label
+                style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; cursor: pointer; font-size: 13px; color: var(--text-muted);">
+                <input type="checkbox" id="rawModeToggle" style="width: 16px; height: 16px; cursor: pointer;">
+                <span><strong>Raw Mode</strong> - Copy exact styles, ignore master/theme inheritance</span>
+            </label>
+
+            <div class="flex justify-between">
+                <button onclick="closeModal('importModal')" class="btn btn-glass">Cancel</button>
+                <button onclick="confirmImport()" class="btn btn-primary">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <?!= include('Client/Client'); ?>
+</body>
+
+</html>

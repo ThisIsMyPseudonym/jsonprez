@@ -1,0 +1,385 @@
+<script>
+    // ============================================================================
+    // STATE & CONFIG
+    // ============================================================================
+    let editor; // CodeMirror instance
+    let currentSlideIndex = 0;
+    let presentationData = { slides: [] };
+
+    // Initial Data
+    const INITIAL_JSON = {
+        "config": {
+            "title": "Modern Presentation",
+            "theme": { "colors": { "primary": "#3b82f6" } }
+        },
+        "slides": [
+            {
+                "background": "#ffffff",
+                "elements": [
+                    { "type": "text", "text": "Hello World", "x": 50, "y": 200, "w": 900, "h": 100, "fontSize": 72, "bold": true, "align": "center", "color": "#1e293b", "fontFamily": "Inter" },
+                    { "type": "text", "text": "Created with SlidesEngine", "x": 100, "y": 300, "w": 800, "h": 50, "fontSize": 24, "align": "center", "color": "#64748b" },
+                    { "type": "shape", "shape": "ROUND_RECTANGLE", "text": "High Fidelity", "x": 400, "y": 400, "w": 200, "h": 60, "fillColor": "primary", "color": "#fff", "fontSize": 18 }
+                ]
+            }
+        ]
+    };
+
+    // ============================================================================
+    // INITIALIZATION
+    // ============================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+        setupEditor();
+        updatePreview();
+        window.addEventListener('resize', fitPreviewToFrame);
+    });
+
+    function setupEditor() {
+        const textarea = document.getElementById('jsonInput');
+        textarea.value = JSON.stringify(INITIAL_JSON, null, 2);
+
+        editor = CodeMirror.fromTextArea(textarea, {
+            mode: "application/json",
+            theme: "dracula",
+            lineNumbers: true,
+            indentUnit: 2,
+            smartIndent: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            lint: true,
+            gutters: ["CodeMirror-lint-markers"]
+        });
+
+        let debounceTimer;
+        editor.on('change', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                updatePreview();
+            }, 300); // Faster debounce for DOM
+        });
+    }
+
+    // ============================================================================
+    // DOM PREVIEW ENGINE
+    // ============================================================================
+    function updatePreview() {
+        try {
+            const val = editor.getValue();
+            presentationData = JSON.parse(val);
+
+            if (!presentationData.slides) presentationData.slides = [];
+            if (currentSlideIndex >= presentationData.slides.length) {
+                currentSlideIndex = Math.max(0, presentationData.slides.length - 1);
+            }
+
+            renderSlide(currentSlideIndex);
+            updateUI();
+        } catch (e) {
+            // Valid JSON only
+        }
+    }
+
+    function renderSlide(index) {
+        const container = document.getElementById('previewContainer');
+        if (!container) return;
+
+        // Clear previous
+        container.innerHTML = '';
+
+        if (!presentationData.slides || presentationData.slides.length === 0) return;
+        const slide = presentationData.slides[index];
+
+        // 1. Background
+        const bg = resolveColor(slide.background) || '#ffffff';
+        container.style.backgroundColor = bg;
+        if (slide.backgroundImage) {
+            container.style.backgroundImage = `url('${slide.backgroundImage}')`;
+            container.style.backgroundSize = 'cover';
+        } else {
+            container.style.backgroundImage = 'none';
+        }
+
+        // 2. Elements
+        if (slide.elements) {
+            // Sort by Z index if present (naive)
+            slide.elements.forEach(el => {
+                const domEl = createDomElement(el);
+                if (domEl) container.appendChild(domEl);
+            });
+        }
+
+        // 3. Fit to screen
+        fitPreviewToFrame();
+    }
+
+    function createDomElement(el) {
+        const div = document.createElement('div');
+        div.className = 'slide-element';
+
+        // Geometry (PT units)
+        const x = el.x || 0;
+        const y = el.y || 0;
+        const w = el.w || 100;
+        const h = el.h || 100;
+
+        div.style.left = `${x}pt`;
+        div.style.top = `${y}pt`;
+        div.style.width = `${w}pt`;
+        div.style.height = `${h}pt`;
+
+        if (el.rotation) {
+            div.style.transform = `rotate(${el.rotation}deg)`;
+        }
+
+        if (el.opacity !== undefined) div.style.opacity = el.opacity;
+        if (el.shadow) {
+            div.style.boxShadow = "2px 2px 5px rgba(0,0,0,0.3)"; // Simple fallback
+        }
+
+        // Content Builders
+        switch (el.type) {
+            case 'text':
+                buildTextContent(div, el);
+                break;
+            case 'shape':
+                buildShapeContent(div, el);
+                break;
+            case 'image':
+                buildImageContent(div, el);
+                break;
+            case 'video':
+                div.style.backgroundColor = "#000";
+                div.innerHTML = `<div style="color:white; display:flex; align-items:center; justify-content:center; height:100%;">▶ Video</div>`;
+                break;
+            case 'table':
+                buildTableContent(div, el);
+                break;
+            case 'line':
+                // CSS Lines are tricky with div borders, usually SVG is better, 
+                // but we can use border-top for simple lines
+                div.style.height = `${el.weight || 2}pt`;
+                div.style.backgroundColor = resolveColor(el.color) || '#000';
+                div.style.transformOrigin = "0 50%";
+                // Trig to calculate rotation if x2/y2 used, but simplified here assuming normal rotation
+                break;
+            default:
+                div.style.border = "1px dashed red";
+        }
+
+        return div;
+    }
+
+    function buildTextContent(div, el) {
+        div.classList.add('element-text');
+
+        // Box Styles
+        if (el.fillColor) div.style.backgroundColor = resolveColor(el.fillColor);
+        if (el.borderColor) {
+            div.style.border = `${el.borderWidth || 1}pt solid ${resolveColor(el.borderColor)}`;
+        }
+
+        // Text Styles
+        div.style.fontFamily = el.fontFamily ? `'${el.fontFamily}', sans-serif` : 'Arial, sans-serif';
+        div.style.fontSize = `${el.fontSize || 14}pt`;
+        div.style.color = resolveColor(el.color) || '#000000';
+        if (el.bold) div.style.fontWeight = 'bold';
+        if (el.italic) div.style.fontStyle = 'italic';
+        if (el.underline) div.style.textDecoration = 'underline';
+
+        // Alignment
+        const alignMap = { 'center': 'center', 'end': 'right', 'right': 'right', 'justify': 'justify' };
+        div.style.textAlign = alignMap[el.align] || 'left';
+
+        // Vertical Align (Flex)
+        div.style.display = 'flex';
+        div.style.flexDirection = 'column';
+        if (el.valign === 'middle') div.style.justifyContent = 'center';
+        else if (el.valign === 'bottom') div.style.justifyContent = 'flex-end';
+        else div.style.justifyContent = 'flex-start'; // top
+
+        // Paragraphs
+        let text = el.text || "";
+        if (Array.isArray(el.items)) text = el.items.map(i => (typeof i === 'object' ? i.text : i)).join('\n');
+        div.innerText = text;
+    }
+
+    function buildShapeContent(div, el) {
+        div.classList.add('element-shape');
+
+        // Basic Shape Styles
+        div.style.backgroundColor = resolveColor(el.fillColor) || 'transparent';
+        if (el.borderColor) {
+            div.style.border = `${el.borderWidth || 1}pt solid ${resolveColor(el.borderColor)}`;
+        }
+
+        // CSS Shapes
+        const shape = (el.shape || 'RECTANGLE').toUpperCase();
+        if (shape === 'ELLIPSE') div.style.borderRadius = "50%";
+        if (shape.includes('ROUND')) div.style.borderRadius = "12pt";
+
+        // Inner Text
+        if (el.text) {
+            div.innerText = el.text;
+            div.style.color = resolveColor(el.color) || '#000';
+            div.style.fontFamily = 'Arial, sans-serif';
+            div.style.fontSize = `${el.fontSize || 14}pt`;
+            if (el.bold) div.style.fontWeight = 'bold';
+        }
+    }
+
+    function buildImageContent(div, el) {
+        div.style.backgroundImage = `url('${el.url || ''}')`;
+        div.style.backgroundSize = 'cover';
+        div.style.backgroundPosition = 'center';
+        if (!el.url) {
+            div.style.backgroundColor = '#e2e8f0';
+            div.innerText = "Image";
+            div.style.display = "flex";
+            div.style.alignItems = "center";
+            div.style.justifyContent = "center";
+            div.style.color = "#64748b";
+        }
+    }
+
+    function buildTableContent(div, el) {
+        div.classList.add('element-table-wrapper');
+        const table = document.createElement('table');
+        table.className = 'element-table';
+
+        if (el.data && Array.isArray(el.data)) {
+            el.data.forEach((rowData, rIndex) => {
+                const tr = document.createElement('tr');
+                rowData.forEach((cellData, cIndex) => {
+                    const td = document.createElement('td');
+                    let text = '';
+
+                    if (typeof cellData === 'object') {
+                        text = cellData.text || '';
+                        if (cellData.fillColor) td.style.backgroundColor = resolveColor(cellData.fillColor);
+                        if (cellData.color) td.style.color = resolveColor(cellData.color);
+                        if (cellData.bold) td.style.fontWeight = 'bold';
+                    } else {
+                        text = String(cellData || '');
+                    }
+
+                    // Header row default style
+                    if (rIndex === 0 && el.header) {
+                        td.style.backgroundColor = td.style.backgroundColor || '#e2e8f0';
+                        td.style.fontWeight = 'bold';
+                    }
+
+                    td.innerText = text;
+                    tr.appendChild(td);
+                });
+                table.appendChild(tr);
+            });
+        }
+        div.appendChild(table);
+    }
+
+    // ============================================================================
+    // UTILS
+    // ============================================================================
+
+    // Fit the 1000pt x 562.5pt container into the visible window
+    function fitPreviewToFrame() {
+        const container = document.getElementById('previewContainer');
+        const frame = container.parentElement;
+        if (!frame || !container) return;
+
+        // Container is sized in PT (1000pt), but clients use PX.
+        // We must use the computed pixel size for the math.
+        const cw = container.offsetWidth;
+        const ch = container.offsetHeight;
+
+        const fw = frame.clientWidth;
+        const fh = frame.clientHeight;
+
+        if (cw === 0 || ch === 0) return; // Hidden or not rendered yet
+
+        const scale = Math.min(fw / cw, fh / ch) * 0.95; // 95% to leave margin
+
+        container.style.transform = `scale(${scale})`;
+    }
+
+    function resolveColor(c) {
+        if (!c) return null;
+        if (c.startsWith('#') || c.startsWith('rgb')) return c;
+        const map = { 'primary': '#3b82f6', 'secondary': '#06b6d4' };
+        return map[c] || c;
+    }
+
+    // ============================================================================
+    // UI ACTIONS (Standard)
+    // ============================================================================
+    function updateUI() {
+        const count = presentationData.slides ? presentationData.slides.length : 0;
+        document.getElementById('slideCounter').innerText = `Slide ${currentSlideIndex + 1} / ${count}`;
+    }
+
+    function nextSlide() {
+        if (!presentationData.slides) return;
+        if (currentSlideIndex < presentationData.slides.length - 1) { currentSlideIndex++; updatePreview(); }
+    }
+    function prevSlide() {
+        if (currentSlideIndex > 0) { currentSlideIndex--; updatePreview(); }
+    }
+
+    // Processing & Copy & Modals (Same as before)
+    function showProcessing(msg) {
+        document.getElementById('processingMsg').innerText = msg || 'Working...';
+        document.getElementById('processingOverlay').classList.add('active');
+    }
+    function hideProcessing() {
+        document.getElementById('processingOverlay').classList.remove('active');
+    }
+    function copyToClipboard() {
+        navigator.clipboard.writeText(editor.getValue())
+            .then(() => toast('Copied!', 'success'))
+            .catch(() => toast('Failed copy', 'error'));
+    }
+    function toast(text, type) {
+        let bg = "#1e293b";
+        if (type === 'success') bg = "linear-gradient(to right, #10b981, #059669)";
+        if (type === 'error') bg = "linear-gradient(to right, #ef4444, #b91c1c)";
+        Toastify({ text, duration: 3000, style: { background: bg, borderRadius: "8px" } }).showToast();
+    }
+
+    // Server Calls
+    function generatePresentation() {
+        showProcessing('Generating Deck...');
+        google.script.run
+            .withSuccessHandler(res => {
+                hideProcessing();
+                if (res.status === 'success') { toast('Success!', 'success'); showResultLink(res.url); }
+                else toast(res.message, 'error');
+            })
+            .withFailureHandler(err => { hideProcessing(); toast(err.message, 'error'); })
+            .generatePresentation(editor.getValue());
+    }
+
+    function showResultLink(url) {
+        document.getElementById('resultContainer').innerHTML = `<div class="result-link"><a href="${url}" target="_blank">Open Presentation</a></div>`;
+    }
+
+    function openImportModal() { document.getElementById('importModal').classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    function confirmImport() {
+        const id = document.getElementById('importId').value;
+        const rawMode = document.getElementById('rawModeToggle').checked;
+        closeModal('importModal');
+        showProcessing(rawMode ? 'Importing (Raw Mode)...' : 'Importing...');
+        google.script.run.withSuccessHandler(res => {
+            hideProcessing();
+            if (res.status === 'success') { editor.setValue(res.json); toast('Imported!', 'success'); }
+            else toast(res.message || 'Import failed', 'error');
+        }).withFailureHandler(err => {
+            hideProcessing();
+            toast(err.message || 'Import error', 'error');
+        }).importPresentation(id, rawMode);
+    }
+
+    function formatJSON() { try { editor.setValue(JSON.stringify(JSON.parse(editor.getValue()), null, 2)); } catch (e) { } }
+    function loadTemplate(n) { /* Simple template loader logic */ }
+
+</script>
