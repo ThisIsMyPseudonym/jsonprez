@@ -28,6 +28,53 @@ let _placeholderStyles = {};
 // Global background index: layoutId -> background color, plus 'master' key for master background
 let _backgroundIndex = {};
 
+// Global cached page dimensions for background shape detection
+let _pageWidth = 9144000;
+let _pageHeight = 5143500;
+
+/**
+ * Helper to check if a shape covers most of the slide (background shape)
+ * Must be called after buildBackgroundIndex sets _pageWidth/_pageHeight
+ */
+function isBackgroundShape(element) {
+    if (!element.shape) return false;
+    const transform = element.transform || {};
+    const size = element.size || {};
+
+    const scaleX = transform.scaleX !== undefined ? Math.abs(transform.scaleX) : 1;
+    const scaleY = transform.scaleY !== undefined ? Math.abs(transform.scaleY) : 1;
+    const width = (size.width?.magnitude || 0) * scaleX;
+    const height = (size.height?.magnitude || 0) * scaleY;
+    const x = transform.translateX || 0;
+    const y = transform.translateY || 0;
+
+    // Shape is a background if it covers >90% of the slide and starts near origin
+    const coversWidth = width >= _pageWidth * 0.9;
+    const coversHeight = height >= _pageHeight * 0.9;
+    const nearOrigin = Math.abs(x) < _pageWidth * 0.1 && Math.abs(y) < _pageHeight * 0.1;
+
+    return coversWidth && coversHeight && nearOrigin;
+}
+
+/**
+ * Helper to extract background from a page's elements
+ * Looks for large shapes that cover the slide background
+ */
+function extractBackgroundFromShapes(pageElements) {
+    for (const el of (pageElements || [])) {
+        if (isBackgroundShape(el)) {
+            const fill = el.shape?.shapeProperties?.shapeBackgroundFill;
+            if (fill && fill.propertyState !== 'NOT_RENDERED') {
+                const color = extractFillAdvanced(fill);
+                if (color && color !== 'transparent') {
+                    return color;
+                }
+            }
+        }
+    }
+    return null;
+}
+
 /**
  * Build an index of background colors from masters and layouts
  * This enables resolving inherited backgrounds when they're not set on a slide
@@ -35,46 +82,9 @@ let _backgroundIndex = {};
 function buildBackgroundIndex(presentation) {
     _backgroundIndex = {};
 
-    // Standard slide dimensions in EMU (9144000 x 5143500 for 16:9)
-    const pageWidth = presentation.pageSize?.width?.magnitude || 9144000;
-    const pageHeight = presentation.pageSize?.height?.magnitude || 5143500;
-
-    // Helper to check if a shape covers most of the slide (background shape)
-    const isBackgroundShape = (element) => {
-        if (!element.shape) return false;
-        const transform = element.transform || {};
-        const size = element.size || {};
-
-        const scaleX = transform.scaleX !== undefined ? Math.abs(transform.scaleX) : 1;
-        const scaleY = transform.scaleY !== undefined ? Math.abs(transform.scaleY) : 1;
-        const width = (size.width?.magnitude || 0) * scaleX;
-        const height = (size.height?.magnitude || 0) * scaleY;
-        const x = transform.translateX || 0;
-        const y = transform.translateY || 0;
-
-        // Shape is a background if it covers >90% of the slide and starts near origin
-        const coversWidth = width >= pageWidth * 0.9;
-        const coversHeight = height >= pageHeight * 0.9;
-        const nearOrigin = Math.abs(x) < pageWidth * 0.1 && Math.abs(y) < pageHeight * 0.1;
-
-        return coversWidth && coversHeight && nearOrigin;
-    };
-
-    // Helper to extract background from a page's elements
-    const extractBackgroundFromShapes = (pageElements) => {
-        for (const el of (pageElements || [])) {
-            if (isBackgroundShape(el)) {
-                const fill = el.shape?.shapeProperties?.shapeBackgroundFill;
-                if (fill && fill.propertyState !== 'NOT_RENDERED') {
-                    const color = extractFillAdvanced(fill);
-                    if (color && color !== 'transparent') {
-                        return color;
-                    }
-                }
-            }
-        }
-        return null;
-    };
+    // Cache page dimensions for background shape detection
+    _pageWidth = presentation.pageSize?.width?.magnitude || 9144000;
+    _pageHeight = presentation.pageSize?.height?.magnitude || 5143500;
 
     // Extract master background (fallback for all slides)
     const masters = presentation.masters || [];
@@ -155,6 +165,14 @@ function resolveSlideBackground(slide) {
                 return color;
             }
         }
+    }
+
+    // 1.5. Check for background shape on the slide itself
+    // This handles slides where a large shape is used as the background instead of pageBackgroundFill
+    const shapeBg = extractBackgroundFromShapes(slide.pageElements);
+    if (shapeBg) {
+        Logger.log('Slide BG from slide shape: ' + shapeBg);
+        return shapeBg;
     }
 
     // 2. Check layout background from our index
