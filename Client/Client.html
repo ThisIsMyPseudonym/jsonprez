@@ -115,11 +115,23 @@
         const div = document.createElement('div');
         div.className = 'slide-element';
 
-        // Geometry (PT units)
-        const x = el.x || 0;
-        const y = el.y || 0;
-        const w = el.w || 100;
-        const h = el.h || 100;
+        // Geometry (PT units) - handle both x/y/w/h and x1/y1/x2/y2 for lines
+        let x = el.x || 0;
+        let y = el.y || 0;
+        let w = el.w || 100;
+        let h = el.h || 100;
+
+        // For lines with x1/y1/x2/y2, calculate bounding box
+        if (el.type === 'line' && (el.x1 !== undefined || el.x2 !== undefined)) {
+            const x1 = el.x1 !== undefined ? el.x1 : x;
+            const y1 = el.y1 !== undefined ? el.y1 : y;
+            const x2 = el.x2 !== undefined ? el.x2 : (x + w);
+            const y2 = el.y2 !== undefined ? el.y2 : (y + h);
+            x = Math.min(x1, x2);
+            y = Math.min(y1, y2);
+            w = Math.abs(x2 - x1) || 1;
+            h = Math.abs(y2 - y1) || 1;
+        }
 
         div.style.left = `${x}pt`;
         div.style.top = `${y}pt`;
@@ -132,7 +144,7 @@
 
         if (el.opacity !== undefined) div.style.opacity = el.opacity;
         if (el.shadow) {
-            div.style.boxShadow = "2px 2px 5px rgba(0,0,0,0.3)"; // Simple fallback
+            div.style.boxShadow = buildShadowCSS(el.shadow, el.fillColor || el.background);
         }
 
         // Content Builders
@@ -154,15 +166,33 @@
                 buildTableContent(div, el);
                 break;
             case 'line':
-                // CSS Lines are tricky with div borders, usually SVG is better, 
-                // but we can use border-top for simple lines
-                div.style.height = `${el.weight || 2}pt`;
-                div.style.backgroundColor = resolveColor(el.color) || '#000';
-                div.style.transformOrigin = "0 50%";
-                // Trig to calculate rotation if x2/y2 used, but simplified here assuming normal rotation
+                buildLineContent(div, el);
+                break;
+            case 'chart':
+            case 'sheetsChart':
+                buildChartPlaceholder(div, el);
+                break;
+            case 'icon':
+                buildIconContent(div, el);
+                break;
+            case 'group':
+                // Render group children inline (flattened)
+                if (el.elements && el.elements.length > 0) {
+                    div.style.position = 'absolute';
+                    el.elements.forEach(child => {
+                        const childEl = createDomElement(child);
+                        if (childEl) div.appendChild(childEl);
+                    });
+                }
                 break;
             default:
-                div.style.border = "1px dashed red";
+                div.style.border = "1px dashed #ccc";
+                div.style.display = "flex";
+                div.style.alignItems = "center";
+                div.style.justifyContent = "center";
+                div.style.color = "#999";
+                div.style.fontSize = "10pt";
+                div.innerText = el.type || 'unknown';
         }
 
         return div;
@@ -172,12 +202,21 @@
         div.classList.add('element-text');
 
         // Box Styles
-        if (el.fillColor) div.style.backgroundColor = resolveColor(el.fillColor);
-        if (el.borderColor) {
+        const fillColor = resolveColor(el.fillColor);
+        if (fillColor && fillColor !== 'transparent') {
+            div.style.backgroundColor = fillColor;
+        }
+        if (el.borderColor && el.borderColor !== 'none') {
             div.style.border = `${el.borderWidth || 1}pt solid ${resolveColor(el.borderColor)}`;
         }
 
-        // Text Styles
+        // Padding support
+        if (el.paddingTop) div.style.paddingTop = `${el.paddingTop}pt`;
+        if (el.paddingBottom) div.style.paddingBottom = `${el.paddingBottom}pt`;
+        if (el.paddingLeft) div.style.paddingLeft = `${el.paddingLeft}pt`;
+        if (el.paddingRight) div.style.paddingRight = `${el.paddingRight}pt`;
+
+        // Default Text Styles (used when no textRuns)
         div.style.fontFamily = el.fontFamily ? `'${el.fontFamily}', sans-serif` : 'Arial, sans-serif';
         div.style.fontSize = `${el.fontSize || 14}pt`;
         div.style.color = resolveColor(el.color) || '#000000';
@@ -196,33 +235,358 @@
         else if (el.valign === 'bottom') div.style.justifyContent = 'flex-end';
         else div.style.justifyContent = 'flex-start'; // top
 
-        // Paragraphs
-        let text = el.text || "";
-        if (Array.isArray(el.items)) text = el.items.map(i => (typeof i === 'object' ? i.text : i)).join('\n');
-        div.innerText = text;
+        // Paragraph spacing
+        if (el.lineSpacing && el.lineSpacing !== 100) {
+            div.style.lineHeight = (el.lineSpacing / 100);
+        }
+
+        // Check for textRuns (mixed formatting)
+        if (el.textRuns && el.textRuns.length > 0) {
+            renderTextRuns(div, el.textRuns, el);
+        } else if (Array.isArray(el.items)) {
+            // Legacy items array (bullet-like)
+            renderItemsList(div, el.items, el);
+        } else {
+            // Simple text
+            const text = el.text || "";
+            if (text.includes('\n')) {
+                // Multi-paragraph text
+                const paragraphs = text.split('\n');
+                paragraphs.forEach(para => {
+                    const p = document.createElement('div');
+                    p.style.marginBottom = '0.3em';
+                    p.innerText = para;
+                    div.appendChild(p);
+                });
+            } else {
+                div.innerText = text;
+            }
+        }
+    }
+
+    // Render textRuns with per-run styling and bullet support
+    function renderTextRuns(container, textRuns, baseEl) {
+        // Group runs by paragraph (split on newlines)
+        let currentParagraph = document.createElement('div');
+        currentParagraph.className = 'text-paragraph';
+
+        let isFirstPara = true;
+
+        textRuns.forEach((run, idx) => {
+            const text = run.text || '';
+            if (!text) return;
+
+            // Check if this run starts a new paragraph (has bullet info or is first)
+            const isParagraphStart = idx === 0 || (idx > 0 && textRuns[idx - 1].text.endsWith('\n'));
+
+            if (isParagraphStart && run.paragraphStyle) {
+                // Apply paragraph styles
+                const ps = run.paragraphStyle;
+                if (ps.align) {
+                    const alignMap = { 'center': 'center', 'end': 'right', 'right': 'right', 'justify': 'justify' };
+                    currentParagraph.style.textAlign = alignMap[ps.align] || 'left';
+                }
+                if (ps.indentStart) {
+                    currentParagraph.style.paddingLeft = `${ps.indentStart}pt`;
+                }
+                if (ps.indentFirstLine) {
+                    currentParagraph.style.textIndent = `${ps.indentFirstLine}pt`;
+                }
+                if (ps.spaceAbove && !isFirstPara) {
+                    currentParagraph.style.marginTop = `${ps.spaceAbove}pt`;
+                }
+                if (ps.spaceBelow) {
+                    currentParagraph.style.marginBottom = `${ps.spaceBelow}pt`;
+                }
+                if (ps.lineSpacing && ps.lineSpacing !== 100) {
+                    currentParagraph.style.lineHeight = (ps.lineSpacing / 100);
+                }
+            }
+
+            // Add bullet if present
+            if (isParagraphStart && run.bullet && (run.bullet.listId || run.bullet.glyph)) {
+                const bulletSpan = document.createElement('span');
+                bulletSpan.className = 'bullet-marker';
+                bulletSpan.style.marginRight = '8pt';
+                bulletSpan.style.display = 'inline-block';
+                bulletSpan.style.minWidth = '12pt';
+
+                // Use glyph if available, otherwise use default bullets based on nesting
+                const nestingLevel = run.bullet.nestingLevel || 0;
+                const defaultBullets = ['•', '◦', '▪', '▫', '‣'];
+                bulletSpan.innerText = run.bullet.glyph || defaultBullets[nestingLevel % defaultBullets.length];
+
+                // Indent based on nesting level
+                if (nestingLevel > 0) {
+                    currentParagraph.style.paddingLeft = `${(nestingLevel + 1) * 18}pt`;
+                }
+
+                currentParagraph.appendChild(bulletSpan);
+            }
+
+            // Split text on newlines to handle paragraph breaks within a run
+            const parts = text.split('\n');
+            parts.forEach((part, partIdx) => {
+                if (part.length > 0) {
+                    const span = document.createElement('span');
+                    span.className = 'text-run';
+
+                    // Apply run-specific styles
+                    if (run.fontFamily) span.style.fontFamily = `'${run.fontFamily}', sans-serif`;
+                    if (run.fontSize) span.style.fontSize = `${run.fontSize}pt`;
+                    if (run.color) span.style.color = resolveColor(run.color);
+                    if (run.bold) span.style.fontWeight = 'bold';
+                    if (run.italic) span.style.fontStyle = 'italic';
+                    if (run.underline) span.style.textDecoration = 'underline';
+                    if (run.strikethrough) {
+                        span.style.textDecoration = (span.style.textDecoration || '') + ' line-through';
+                    }
+                    if (run.smallCaps) span.style.fontVariant = 'small-caps';
+                    if (run.baselineOffset === 'SUPERSCRIPT') {
+                        span.style.verticalAlign = 'super';
+                        span.style.fontSize = '0.7em';
+                    } else if (run.baselineOffset === 'SUBSCRIPT') {
+                        span.style.verticalAlign = 'sub';
+                        span.style.fontSize = '0.7em';
+                    }
+
+                    // Link styling
+                    if (run.link && run.link.url) {
+                        span.style.color = resolveColor('primary') || '#3b82f6';
+                        span.style.textDecoration = 'underline';
+                        span.title = run.link.url;
+                        span.style.cursor = 'pointer';
+                    }
+
+                    span.innerText = part;
+                    currentParagraph.appendChild(span);
+                }
+
+                // If not the last part, we have a newline - start new paragraph
+                if (partIdx < parts.length - 1) {
+                    container.appendChild(currentParagraph);
+                    currentParagraph = document.createElement('div');
+                    currentParagraph.className = 'text-paragraph';
+                    isFirstPara = false;
+                }
+            });
+        });
+
+        // Append the last paragraph
+        if (currentParagraph.childNodes.length > 0) {
+            container.appendChild(currentParagraph);
+        }
+    }
+
+    // Render items array (legacy bullet format)
+    function renderItemsList(container, items, baseEl) {
+        items.forEach((item, idx) => {
+            const p = document.createElement('div');
+            p.className = 'text-paragraph';
+            p.style.marginBottom = '0.3em';
+
+            let text = '';
+            let indent = 0;
+
+            if (typeof item === 'object') {
+                text = item.text || '';
+                indent = item.indent || 0;
+            } else {
+                text = String(item);
+            }
+
+            // Add bullet
+            const bulletSpan = document.createElement('span');
+            bulletSpan.className = 'bullet-marker';
+            bulletSpan.style.marginRight = '8pt';
+            const defaultBullets = ['•', '◦', '▪'];
+            bulletSpan.innerText = defaultBullets[indent % defaultBullets.length];
+
+            if (indent > 0) {
+                p.style.paddingLeft = `${indent * 18}pt`;
+            }
+
+            p.appendChild(bulletSpan);
+
+            const textSpan = document.createElement('span');
+            textSpan.innerText = text;
+            p.appendChild(textSpan);
+
+            container.appendChild(p);
+        });
     }
 
     function buildShapeContent(div, el) {
         div.classList.add('element-shape');
 
-        // Basic Shape Styles
-        div.style.backgroundColor = resolveColor(el.fillColor) || 'transparent';
-        if (el.borderColor) {
-            div.style.border = `${el.borderWidth || 1}pt solid ${resolveColor(el.borderColor)}`;
+        // Fill color with transparency support
+        const fillColor = resolveColor(el.fillColor);
+        if (fillColor && fillColor !== 'transparent' && fillColor !== 'none') {
+            div.style.backgroundColor = fillColor;
         }
 
-        // CSS Shapes
-        const shape = (el.shape || 'RECTANGLE').toUpperCase();
-        if (shape === 'ELLIPSE') div.style.borderRadius = "50%";
-        if (shape.includes('ROUND')) div.style.borderRadius = "12pt";
+        // Border/outline
+        if (el.borderColor && el.borderColor !== 'none') {
+            const borderStyle = el.borderDash === 'DASH' ? 'dashed' :
+                               el.borderDash === 'DOT' ? 'dotted' : 'solid';
+            div.style.border = `${el.borderWidth || 1}pt ${borderStyle} ${resolveColor(el.borderColor)}`;
+        }
 
-        // Inner Text
-        if (el.text) {
-            div.innerText = el.text;
+        // CSS Shape approximations
+        const shape = (el.shape || 'RECTANGLE').toUpperCase();
+        applyShapeStyle(div, shape);
+
+        // Text alignment for shapes
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.justifyContent = 'center';
+        div.style.textAlign = 'center';
+        div.style.overflow = 'hidden';
+
+        // Inner Text (with textRuns support)
+        if (el.text || (el.textRuns && el.textRuns.length > 0)) {
             div.style.color = resolveColor(el.color) || '#000';
-            div.style.fontFamily = 'Arial, sans-serif';
+            div.style.fontFamily = el.fontFamily ? `'${el.fontFamily}', sans-serif` : 'Arial, sans-serif';
             div.style.fontSize = `${el.fontSize || 14}pt`;
             if (el.bold) div.style.fontWeight = 'bold';
+            if (el.italic) div.style.fontStyle = 'italic';
+
+            if (el.textRuns && el.textRuns.length > 1) {
+                // Create a container for mixed-format text
+                const textContainer = document.createElement('div');
+                textContainer.style.width = '100%';
+                renderTextRuns(textContainer, el.textRuns, el);
+                div.appendChild(textContainer);
+            } else {
+                div.innerText = el.text || '';
+            }
+        }
+    }
+
+    // Apply CSS styling based on shape type
+    function applyShapeStyle(div, shape) {
+        // Reset clip-path
+        div.style.clipPath = 'none';
+
+        switch (shape) {
+            case 'ELLIPSE':
+            case 'OVAL':
+                div.style.borderRadius = '50%';
+                break;
+
+            case 'ROUND_RECTANGLE':
+            case 'ROUNDED_RECTANGLE':
+                div.style.borderRadius = '12pt';
+                break;
+
+            case 'SNIP_ROUND_RECTANGLE':
+                div.style.borderRadius = '12pt 0 12pt 0';
+                break;
+
+            case 'TRIANGLE':
+            case 'TRIANGLE_UP':
+                div.style.clipPath = 'polygon(50% 0%, 0% 100%, 100% 100%)';
+                div.style.borderRadius = '0';
+                break;
+
+            case 'TRIANGLE_DOWN':
+            case 'DOWN_ARROW':
+                div.style.clipPath = 'polygon(0% 0%, 100% 0%, 50% 100%)';
+                break;
+
+            case 'TRIANGLE_LEFT':
+            case 'LEFT_ARROW':
+                div.style.clipPath = 'polygon(100% 0%, 0% 50%, 100% 100%)';
+                break;
+
+            case 'TRIANGLE_RIGHT':
+            case 'RIGHT_ARROW':
+                div.style.clipPath = 'polygon(0% 0%, 100% 50%, 0% 100%)';
+                break;
+
+            case 'DIAMOND':
+            case 'RHOMBUS':
+                div.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
+                break;
+
+            case 'PENTAGON':
+                div.style.clipPath = 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)';
+                break;
+
+            case 'HEXAGON':
+                div.style.clipPath = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+                break;
+
+            case 'OCTAGON':
+                div.style.clipPath = 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)';
+                break;
+
+            case 'STAR_4':
+            case 'STAR':
+                div.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+                break;
+
+            case 'STAR_5':
+                div.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+                break;
+
+            case 'STAR_6':
+                div.style.clipPath = 'polygon(50% 0%, 61% 25%, 93% 25%, 75% 50%, 93% 75%, 61% 75%, 50% 100%, 39% 75%, 7% 75%, 25% 50%, 7% 25%, 39% 25%)';
+                break;
+
+            case 'PARALLELOGRAM':
+                div.style.clipPath = 'polygon(20% 0%, 100% 0%, 80% 100%, 0% 100%)';
+                break;
+
+            case 'TRAPEZOID':
+                div.style.clipPath = 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)';
+                break;
+
+            case 'HEART':
+                div.style.clipPath = 'polygon(50% 100%, 0% 35%, 0% 15%, 15% 0%, 35% 0%, 50% 15%, 65% 0%, 85% 0%, 100% 15%, 100% 35%)';
+                break;
+
+            case 'CHEVRON':
+            case 'RIGHT_ARROW_CALLOUT':
+                div.style.clipPath = 'polygon(0% 0%, 75% 0%, 100% 50%, 75% 100%, 0% 100%, 25% 50%)';
+                break;
+
+            case 'ARROW':
+            case 'NOTCHED_RIGHT_ARROW':
+                div.style.clipPath = 'polygon(0% 20%, 60% 20%, 60% 0%, 100% 50%, 60% 100%, 60% 80%, 0% 80%)';
+                break;
+
+            case 'CALLOUT_RECTANGLE':
+            case 'WEDGE_RECTANGLE_CALLOUT':
+                // Rectangle with a small triangle pointer
+                div.style.borderRadius = '4pt';
+                break;
+
+            case 'CLOUD':
+            case 'CLOUD_CALLOUT':
+                div.style.borderRadius = '50% 50% 50% 50% / 60% 60% 40% 40%';
+                break;
+
+            case 'PLUS':
+            case 'CROSS':
+                div.style.clipPath = 'polygon(35% 0%, 65% 0%, 65% 35%, 100% 35%, 100% 65%, 65% 65%, 65% 100%, 35% 100%, 35% 65%, 0% 65%, 0% 35%, 35% 35%)';
+                break;
+
+            case 'RIBBON':
+            case 'RIBBON_2':
+                div.style.borderRadius = '0 0 50% 50% / 0 0 20% 20%';
+                break;
+
+            case 'FRAME':
+            case 'BEVEL':
+                div.style.borderWidth = '8pt';
+                div.style.borderStyle = 'outset';
+                break;
+
+            case 'RECTANGLE':
+            default:
+                div.style.borderRadius = '0';
+                break;
         }
     }
 
@@ -250,15 +614,28 @@
                 const tr = document.createElement('tr');
                 rowData.forEach((cellData, cIndex) => {
                     const td = document.createElement('td');
-                    let text = '';
 
                     if (typeof cellData === 'object') {
-                        text = cellData.text || '';
-                        if (cellData.fillColor) td.style.backgroundColor = resolveColor(cellData.fillColor);
+                        // Cell-level styling
+                        const fillColor = resolveColor(cellData.fillColor);
+                        if (fillColor && fillColor !== 'transparent') {
+                            td.style.backgroundColor = fillColor;
+                        }
                         if (cellData.color) td.style.color = resolveColor(cellData.color);
                         if (cellData.bold) td.style.fontWeight = 'bold';
+                        if (cellData.italic) td.style.fontStyle = 'italic';
+                        if (cellData.fontSize) td.style.fontSize = `${cellData.fontSize}pt`;
+                        if (cellData.fontFamily) td.style.fontFamily = `'${cellData.fontFamily}', sans-serif`;
+                        if (cellData.align) td.style.textAlign = cellData.align;
+
+                        // Check for textRuns in cell
+                        if (cellData.textRuns && cellData.textRuns.length > 1) {
+                            renderTextRuns(td, cellData.textRuns, cellData);
+                        } else {
+                            td.innerText = cellData.text || '';
+                        }
                     } else {
-                        text = String(cellData || '');
+                        td.innerText = String(cellData || '');
                     }
 
                     // Header row default style
@@ -267,13 +644,185 @@
                         td.style.fontWeight = 'bold';
                     }
 
-                    td.innerText = text;
                     tr.appendChild(td);
                 });
                 table.appendChild(tr);
             });
         }
         div.appendChild(table);
+    }
+
+    // Build line element with SVG for proper diagonal support
+    function buildLineContent(div, el) {
+        div.classList.add('element-line');
+
+        // Get coordinates
+        const x1 = el.x1 !== undefined ? el.x1 : (el.x || 0);
+        const y1 = el.y1 !== undefined ? el.y1 : (el.y || 0);
+        const x2 = el.x2 !== undefined ? el.x2 : ((el.x || 0) + (el.w || 100));
+        const y2 = el.y2 !== undefined ? el.y2 : ((el.y || 0) + (el.h || 0));
+
+        // Calculate bounding box
+        const minX = Math.min(x1, x2);
+        const minY = Math.min(y1, y2);
+        const width = Math.abs(x2 - x1) || 1;
+        const height = Math.abs(y2 - y1) || 1;
+
+        // Adjust div position (already done in createDomElement, but ensure it's correct)
+        div.style.left = `${minX}pt`;
+        div.style.top = `${minY}pt`;
+        div.style.width = `${width}pt`;
+        div.style.height = `${Math.max(height, el.weight || 2)}pt`;
+        div.style.overflow = 'visible';
+
+        // Create SVG for the line
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.style.position = 'absolute';
+        svg.style.top = '0';
+        svg.style.left = '0';
+        svg.style.overflow = 'visible';
+
+        // Calculate line points relative to the div
+        const lineX1 = x1 - minX;
+        const lineY1 = y1 - minY;
+        const lineX2 = x2 - minX;
+        const lineY2 = y2 - minY;
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', `${lineX1}pt`);
+        line.setAttribute('y1', `${lineY1}pt`);
+        line.setAttribute('x2', `${lineX2}pt`);
+        line.setAttribute('y2', `${lineY2}pt`);
+
+        // Styling
+        const color = resolveColor(el.color) || '#000000';
+        const weight = el.weight || 1;
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', `${weight}pt`);
+
+        // Dash style
+        if (el.dashStyle === 'DASH' || el.dashStyle === 'LONG_DASH') {
+            line.setAttribute('stroke-dasharray', `${weight * 4}pt ${weight * 2}pt`);
+        } else if (el.dashStyle === 'DOT') {
+            line.setAttribute('stroke-dasharray', `${weight}pt ${weight}pt`);
+        } else if (el.dashStyle === 'DASH_DOT') {
+            line.setAttribute('stroke-dasharray', `${weight * 4}pt ${weight}pt ${weight}pt ${weight}pt`);
+        }
+
+        // Arrow markers
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+
+        if (el.startArrow && el.startArrow !== 'NONE') {
+            const markerId = 'arrow-start-' + Math.random().toString(36).substr(2, 9);
+            const marker = createArrowMarker(markerId, color, weight, true);
+            defs.appendChild(marker);
+            line.setAttribute('marker-start', `url(#${markerId})`);
+        }
+
+        if (el.endArrow && el.endArrow !== 'NONE') {
+            const markerId = 'arrow-end-' + Math.random().toString(36).substr(2, 9);
+            const marker = createArrowMarker(markerId, color, weight, false);
+            defs.appendChild(marker);
+            line.setAttribute('marker-end', `url(#${markerId})`);
+        }
+
+        if (defs.childNodes.length > 0) {
+            svg.appendChild(defs);
+        }
+        svg.appendChild(line);
+        div.appendChild(svg);
+    }
+
+    // Create SVG arrow marker
+    function createArrowMarker(id, color, weight, isStart) {
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', id);
+        marker.setAttribute('markerWidth', '10');
+        marker.setAttribute('markerHeight', '10');
+        marker.setAttribute('refX', isStart ? '10' : '0');
+        marker.setAttribute('refY', '5');
+        marker.setAttribute('orient', 'auto');
+        marker.setAttribute('markerUnits', 'strokeWidth');
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        if (isStart) {
+            path.setAttribute('d', 'M 10 0 L 0 5 L 10 10 z');
+        } else {
+            path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+        }
+        path.setAttribute('fill', color);
+
+        marker.appendChild(path);
+        return marker;
+    }
+
+    // Build chart placeholder
+    function buildChartPlaceholder(div, el) {
+        div.classList.add('element-chart');
+        div.style.backgroundColor = '#f1f5f9';
+        div.style.border = '2pt dashed #94a3b8';
+        div.style.borderRadius = '8pt';
+        div.style.display = 'flex';
+        div.style.flexDirection = 'column';
+        div.style.alignItems = 'center';
+        div.style.justifyContent = 'center';
+        div.style.color = '#64748b';
+
+        // Chart icon
+        const icon = document.createElement('div');
+        icon.style.fontSize = '24pt';
+        icon.style.marginBottom = '8pt';
+        icon.innerText = '📊';
+        div.appendChild(icon);
+
+        // Label
+        const label = document.createElement('div');
+        label.style.fontSize = '12pt';
+        label.style.fontWeight = 'bold';
+        if (el.type === 'sheetsChart') {
+            label.innerText = 'Sheets Chart';
+        } else {
+            label.innerText = el.chartType || 'Chart';
+        }
+        div.appendChild(label);
+
+        // Chart title if available
+        if (el.title) {
+            const title = document.createElement('div');
+            title.style.fontSize = '10pt';
+            title.style.marginTop = '4pt';
+            title.innerText = el.title;
+            div.appendChild(title);
+        }
+    }
+
+    // Build icon element
+    function buildIconContent(div, el) {
+        div.classList.add('element-icon');
+
+        const color = resolveColor(el.color) || '#3b82f6';
+        const bgOpacity = el.bgOpacity !== undefined ? el.bgOpacity : 0.15;
+
+        // Convert color to rgba for background
+        const hex = color.replace('#', '');
+        const r = parseInt(hex.substr(0, 2), 16) || 0;
+        const g = parseInt(hex.substr(2, 2), 16) || 0;
+        const b = parseInt(hex.substr(4, 2), 16) || 0;
+
+        div.style.backgroundColor = `rgba(${r},${g},${b},${bgOpacity})`;
+        div.style.borderRadius = '50%';
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.justifyContent = 'center';
+        div.style.color = color;
+
+        const iconText = el.text || el.icon || '★';
+        const w = el.w || el.size || 50;
+        div.style.fontSize = `${(el.fontSize || w * 0.6)}pt`;
+        div.style.fontWeight = 'bold';
+        div.innerText = iconText;
     }
 
     // ============================================================================
@@ -301,11 +850,80 @@
         container.style.transform = `scale(${scale})`;
     }
 
+    // Full theme color resolution matching server-side ThemeService
     function resolveColor(c) {
         if (!c) return null;
+        if (typeof c !== 'string') return null;
+        if (c === 'transparent' || c === 'none') return 'transparent';
         if (c.startsWith('#') || c.startsWith('rgb')) return c;
-        const map = { 'primary': '#3b82f6', 'secondary': '#06b6d4' };
-        return map[c] || c;
+
+        // Check theme colors from presentation config
+        const themeColors = presentationData?.config?.theme?.colors || {};
+        if (themeColors[c]) return themeColors[c];
+
+        // Fallback defaults matching server Config.js
+        const defaults = {
+            'primary': '#3b82f6',
+            'secondary': '#06b6d4',
+            'text': '#1e293b',
+            'textLight': '#64748b',
+            'background': '#ffffff',
+            'surface': '#f8fafc',
+            'accent': '#8b5cf6',
+            'error': '#ef4444',
+            'success': '#22c55e',
+            'warning': '#f59e0b'
+        };
+        return defaults[c] || c;
+    }
+
+    // Shadow preset configurations matching server Config.js
+    const SHADOW_PRESETS = {
+        subtle: { angle: 135, distance: 2, spread: 2, opacity: 0.1 },
+        medium: { angle: 135, distance: 4, spread: 4, opacity: 0.15 },
+        large: { angle: 135, distance: 8, spread: 8, opacity: 0.2 },
+        dramatic: { angle: 135, distance: 12, spread: 12, opacity: 0.25 },
+        glow: { angle: 0, distance: 0, spread: 8, opacity: 0.3 },
+        soft: { angle: 135, distance: 6, spread: 10, opacity: 0.12 },
+        hard: { angle: 135, distance: 3, spread: 1, opacity: 0.3 },
+        floating: { angle: 180, distance: 15, spread: 10, opacity: 0.2 }
+    };
+
+    // Build CSS box-shadow from shadow config
+    function buildShadowCSS(shadow, fillColor) {
+        if (!shadow) return 'none';
+
+        let config;
+        if (shadow === true) {
+            config = { ...SHADOW_PRESETS.medium };
+        } else if (typeof shadow === 'string') {
+            config = { ...(SHADOW_PRESETS[shadow] || SHADOW_PRESETS.medium) };
+        } else if (typeof shadow === 'object') {
+            config = { ...SHADOW_PRESETS.medium, ...shadow };
+        } else {
+            return 'none';
+        }
+
+        const angleRad = ((config.angle || 135) * Math.PI) / 180;
+        const distance = config.distance || 4;
+        const offsetX = Math.round(distance * Math.cos(angleRad));
+        const offsetY = Math.round(distance * Math.sin(angleRad));
+        const spread = config.spread || 4;
+        const opacity = config.opacity || 0.15;
+
+        let shadowColor = config.color || '#000000';
+        if (shadowColor === 'inherit') {
+            shadowColor = fillColor || '#3b82f6';
+        }
+        shadowColor = resolveColor(shadowColor);
+
+        // Convert hex to rgba
+        const hex = shadowColor.replace('#', '');
+        const r = parseInt(hex.substr(0, 2), 16) || 0;
+        const g = parseInt(hex.substr(2, 2), 16) || 0;
+        const b = parseInt(hex.substr(4, 2), 16) || 0;
+
+        return `${offsetX}pt ${offsetY}pt ${spread}pt rgba(${r},${g},${b},${opacity})`;
     }
 
     // ============================================================================

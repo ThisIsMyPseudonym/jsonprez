@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <title>SlidesEngine Dev Runner</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #333;
+            padding: 5px 0;
+        }
+
+        .status {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .success {
+            color: #00ff00;
+        }
+
+        .error {
+            color: #ff0000;
+        }
+
+        .info {
+            color: #00ccff;
+        }
+
+        h1 {
+            border-bottom: 2px solid #00ff00;
+            padding-bottom: 10px;
+        }
+
+        #actions {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #666;
+        }
+
+        button {
+            background: #333;
+            color: #fff;
+            border: 1px solid #666;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #444;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🚀 Auto-Dev Runner (v83 - Raw Transform Fix)</h1>
+    <div id="logs"></div>
+    <div id="result"></div>
+
+    <div id="actions">
+        <button onclick="startSequence()">Restart Sequence</button>
+        <button onclick="runDebugImport()" style="background: maroon;">DEBUG IMPORT URLS</button>
+    </div>
+
+    <script>
+        const PRESENTATION_ID = '1zv6VClAWFd0m6AWsagAQaMlhC1wWScD_sd45qXHSM90';
+
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = 'log-entry ' + type;
+            div.innerText = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+            document.getElementById('logs').appendChild(div);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        let hasStarted = false;
+
+        function startSequence() {
+            if (hasStarted) return;
+            hasStarted = true;
+            log('v39: Auto-starting sequence...', 'info');
+
+            document.getElementById('logs').innerHTML = '';
+            document.getElementById('result').innerHTML = '';
+            runImport();
+        }
+
+        function runImport() {
+            log('Starting Import for ID: ' + PRESENTATION_ID, 'status');
+            google.script.run
+                .withSuccessHandler(onImportSuccess)
+                .withFailureHandler(onFailure)
+                .importPresentation(PRESENTATION_ID, false);
+        }
+
+        function onImportSuccess(response) {
+            if (response.status === 'error') {
+                log('Import Failed: ' + response.message, 'error');
+                return;
+            }
+            log('Import Successful!', 'success');
+            log('JSON Size: ' + response.json.length + ' chars');
+
+            // Auto-start generation
+            runGenerate(response.json);
+        }
+
+        function runGenerate(jsonString) {
+            log('Starting Generation...', 'status');
+            google.script.run
+                .withSuccessHandler(onGenerateSuccess)
+                .withFailureHandler(onFailure)
+                .generatePresentation(jsonString);
+        }
+
+        function runDebugImport() {
+            log('Running DEBUG IMPORT...', 'status');
+            google.script.run
+                .withSuccessHandler(function (res) {
+                    log('Debug Import Results:', 'info');
+                    if (res && res.split) {
+                        res.split('\n').forEach(function (l) { log(l, 'info'); });
+                    } else {
+                        log('No logs returned: ' + JSON.stringify(res), 'error');
+                    }
+                })
+                .withFailureHandler(onFailure)
+                .testImport();
+        }
+
+        function onGenerateSuccess(result) {
+            if (result.status === 'error') {
+                log('Generation Failed: ' + result.message, 'error');
+                return;
+            }
+            log('Generation Complete!', 'success');
+
+            const link = document.createElement('a');
+            link.href = result.url;
+            link.target = '_blank';
+            link.style.color = '#fff';
+            link.style.fontSize = '24px';
+            link.style.display = 'block';
+            link.style.marginTop = '20px';
+            link.innerText = '👉 OPEN NEW PRESENTATION';
+            document.getElementById('result').appendChild(link);
+        }
+
+        function onFailure(error) {
+            log('System Error: ' + error.message, 'error');
+        }
+
+        // Auto-start on load - RE-ENABLED per user request
+        window.onload = startSequence;
+    </script>
+</body>
+
+</html>

@@ -312,6 +312,45 @@
         border: 1pt solid #cbd5e1;
         padding: 4pt;
         overflow: hidden;
+        vertical-align: middle;
+    }
+
+    /* Line Elements */
+    .element-line {
+        pointer-events: none;
+    }
+
+    .element-line svg {
+        pointer-events: none;
+    }
+
+    /* Chart Placeholder */
+    .element-chart {
+        box-sizing: border-box;
+    }
+
+    /* Icon Elements */
+    .element-icon {
+        user-select: none;
+    }
+
+    /* Text Paragraphs and Runs */
+    .text-paragraph {
+        min-height: 1em;
+    }
+
+    .text-run {
+        /* Inline styling applied via JS */
+    }
+
+    .bullet-marker {
+        flex-shrink: 0;
+    }
+
+    /* Group elements - container for children */
+    .slide-element.element-group {
+        overflow: visible;
+        background: transparent;
     }
 
     .preview-controls {

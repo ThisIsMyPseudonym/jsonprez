@@ -19,7 +19,10 @@
     "exceptionLogging": "STACKDRIVER",
     "runtimeVersion": "V8",
     "webapp": {
-        "access": "MYSELF",
+        "access": "ANYONE_ANONYMOUS",
         "executeAs": "USER_DEPLOYING"
+    },
+    "executionApi": {
+        "access": "ANYONE"
     }
 }

@@ -1,0 +1,1054 @@
+{
+  "config": {
+    "title": "Copy of the SOT input [Final - External] Google Fi | Q2 2020 | Performance QBR ",
+    "rawMode": false,
+    "theme": {
+      "colors": {
+        "text": "#000000",
+        "textLight": "#595959",
+        "background": "#ffffff",
+        "surface": "#eeeeee",
+        "primary": "#4285f4",
+        "secondary": "#34a853",
+        "accent": "#fbbc05",
+        "error": "#ea4335",
+        "accent5": "#46bdc6",
+        "accent6": "#7baaf7",
+        "hyperlink": "#1a73e8",
+        "followedHyperlink": "#681da8"
+      },
+      "fonts": {
+        "heading": "Montserrat",
+        "body": "Open Sans"
+      }
+    }
+  },
+  "slides": [
+    {
+      "elements": [
+        {
+          "type": "shape",
+          "objectId": "g84b5f25c0e_0_139",
+          "x": 45,
+          "y": 77,
+          "w": 310,
+          "h": 115,
+          "rotation": 0,
+          "shape": "RECTANGLE",
+          "fillColor": "#ffffff",
+          "borderColor": "none",
+          "borderWidth": 0.75,
+          "text": "Objectives\nDrive maximum number of new subscribers within goal \n\nCampaign DR Goal: \n$600 Blended CPA \n$850 Max Marginal CPA \n",
+          "fontSize": 12,
+          "fontFamily": "Google Sans",
+          "color": "#ff0000",
+          "textRuns": [
+            {
+              "text": "Objectives\n",
+              "color": "#ff0000",
+              "fontSize": 12,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": null
+            },
+            {
+              "text": "Drive maximum number of new subscribers within goal \n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 36
+              },
+              "bullet": null
+            },
+            {
+              "text": "\n",
+              "color": "#434343",
+              "fontSize": 11,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 36
+              },
+              "bullet": null
+            },
+            {
+              "text": "Campaign",
+              "color": "#ff0000",
+              "fontSize": 12,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.j3ezo4u9371f",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": " DR Goal: \n",
+              "color": "#ff0000",
+              "fontSize": 11,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.j3ezo4u9371f",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "$600 Blended CPA \n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.j3ezo4u9371f",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "$850 Max Marginal CPA \n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 36
+              },
+              "bullet": null
+            }
+          ],
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "paddingRight": 0
+        },
+        {
+          "type": "shape",
+          "objectId": "g84b5f25c0e_0_140",
+          "x": 365,
+          "y": 76,
+          "w": 310,
+          "h": 115,
+          "rotation": 0,
+          "shape": "RECTANGLE",
+          "fillColor": "#ffffff",
+          "borderColor": "none",
+          "borderWidth": 0.75,
+          "text": "Budget // Flight\nOriginal Media (3/13): $15M (MV) // $6.8M (CV)\nRevised Media (5/2): $11.9M (MV) // $3.4M (CV)\nFinal Delivery (EOQ): $11.6M (MV) // $3.3M (CV)\n4/1/20 - 6/30/20\nMarkets live: \nUS // NA",
+          "fontSize": 12,
+          "fontFamily": "Google Sans",
+          "color": "#ff0000",
+          "textRuns": [
+            {
+              "text": "Budget // Flight\n",
+              "color": "#ff0000",
+              "fontSize": 12,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Original Media (3/13): $15M (MV) // $6.8M (CV)\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Revised Media (5/2): $11.9M (MV) // $3.4M (CV)\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Final Delivery (EOQ): $11.6M (MV) // $3.3M (CV)\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "4/1/20 - 6/30/20\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 36
+              },
+              "bullet": null
+            },
+            {
+              "text": "Markets live: ",
+              "color": "#ff0000",
+              "fontSize": 12,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "\n",
+              "color": "#666666",
+              "fontSize": 11,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "US // NA",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left"
+              },
+              "bullet": null
+            }
+          ],
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "paddingRight": 0
+        },
+        {
+          "type": "shape",
+          "objectId": "g84b5f25c0e_0_141",
+          "x": 365,
+          "y": 202,
+          "w": 310,
+          "h": 162,
+          "rotation": 0,
+          "shape": "RECTANGLE",
+          "fillColor": "#ffffff",
+          "borderColor": "none",
+          "borderWidth": 0.75,
+          "text": "Creative Notes\nDisplay\nNEW - HTML5  (5/26 - 6/30)\nNEW - RDAs (4/20 - 6/30)\nConcepts: Tether, Family, Device, Solo, Flexible\nVideo\nUnlimited :15s (4/1 - 4/6)\nPixel 3a :15s (4/1 - 6/4)\nNEW - Unlimited :30s (5/6 - 6/30)\nNEW - Flexible :30s (5/6 - 6/30)",
+          "fontSize": 12,
+          "fontFamily": "Google Sans",
+          "color": "#ff0000",
+          "textRuns": [
+            {
+              "text": "Creative Notes\n",
+              "color": "#ff0000",
+              "fontSize": 12,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Display\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 72,
+                "indentFirstLine": 54
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 1,
+                "glyph": "○"
+              }
+            },
+            {
+              "text": "NEW - HTML5  (5/26 - 6/30)\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 72,
+                "indentFirstLine": 54
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 1,
+                "glyph": "○"
+              }
+            },
+            {
+              "text": "NEW - RDAs (4/20 - 6/30)\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 72,
+                "indentFirstLine": 54
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 1,
+                "glyph": "○"
+              }
+            },
+            {
+              "text": "Concepts: Tether, Family, Device, Solo, Flexible\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Video\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 72,
+                "indentFirstLine": 54
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 1,
+                "glyph": "○"
+              }
+            },
+            {
+              "text": "Unlimited :15s (4/1 - 4/6)\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 72,
+                "indentFirstLine": 54
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 1,
+                "glyph": "○"
+              }
+            },
+            {
+              "text": "Pixel 3a :15s (4/1 - 6/4)\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 72,
+                "indentFirstLine": 54
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 1,
+                "glyph": "○"
+              }
+            },
+            {
+              "text": "NEW - Unlimited :30s (5/6 - 6/30)\n",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 72,
+                "indentFirstLine": 54
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 1,
+                "glyph": "○"
+              }
+            },
+            {
+              "text": "NEW - Flexible :30s (5/6 - 6/30)",
+              "color": "#666666",
+              "fontSize": 10,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left"
+              },
+              "bullet": null
+            }
+          ],
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "paddingRight": 0
+        },
+        {
+          "type": "shape",
+          "objectId": "g84b5f25c0e_0_142",
+          "x": 45,
+          "y": 202,
+          "w": 310,
+          "h": 162,
+          "rotation": 0,
+          "shape": "RECTANGLE",
+          "fillColor": "#ffffff",
+          "borderColor": "none",
+          "borderWidth": 0.75,
+          "text": "Core Audiences\nSwitchers (In-Market, Custom Intent)\nGoogle Fans (1P + 3P)\nRKMT\n\nNew in Q2: \nParents\nLookalikes (Seperated from 1P / RMKT)\nLifestyle Changers (Social Only)\nTech Forward (Social Only)\nFlexible (GDN Only)",
+          "fontSize": 12,
+          "fontFamily": "Google Sans",
+          "color": "#ff0000",
+          "textRuns": [
+            {
+              "text": "Core Audiences\n",
+              "color": "#ff0000",
+              "fontSize": 12,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Switchers (In-Market, Custom Intent)\n",
+              "color": "#666666",
+              "fontSize": 9,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Google Fans (1P + 3P)\n",
+              "color": "#666666",
+              "fontSize": 9,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "RKMT\n",
+              "color": "#666666",
+              "fontSize": 9,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 36
+              },
+              "bullet": null
+            },
+            {
+              "text": "\n",
+              "color": "#666666",
+              "fontSize": 6,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 36
+              },
+              "bullet": null
+            },
+            {
+              "text": "New in Q2: ",
+              "color": "#ff0000",
+              "fontSize": 12,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "\n",
+              "color": "#666666",
+              "fontSize": 9,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Parents\n",
+              "color": "#666666",
+              "fontSize": 9,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Lookalikes (Seperated from 1P / RMKT)\n",
+              "color": "#666666",
+              "fontSize": 9,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Lifestyle Changers (Social Only)\n",
+              "color": "#666666",
+              "fontSize": 9,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Tech Forward (Social Only)\n",
+              "color": "#666666",
+              "fontSize": 9,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left",
+                "direction": "LEFT_TO_RIGHT",
+                "spacingMode": "COLLAPSE_LISTS",
+                "lineSpacing": 115,
+                "indentStart": 36,
+                "indentFirstLine": 18
+              },
+              "bullet": {
+                "listId": "kix.o7n0z7kw0ua2",
+                "nestingLevel": 0,
+                "glyph": "●"
+              }
+            },
+            {
+              "text": "Flexible (GDN Only)",
+              "color": "#666666",
+              "fontSize": 9,
+              "fontFamily": "Google Sans",
+              "bold": false,
+              "italic": false,
+              "underline": false,
+              "strikethrough": false,
+              "smallCaps": false,
+              "paragraphStyle": {
+                "align": "left"
+              },
+              "bullet": null
+            }
+          ],
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "paddingRight": 0
+        },
+        {
+          "type": "text",
+          "objectId": "g77d0859b58_0_24",
+          "x": 37,
+          "y": 29,
+          "w": 671,
+          "h": 45,
+          "rotation": 0,
+          "text": "Q2 Plan recap",
+          "color": "#000000",
+          "fontSize": 22,
+          "fontFamily": "Google Sans",
+          "bold": true,
+          "italic": false,
+          "underline": false,
+          "strikethrough": false,
+          "smallCaps": false,
+          "baselineOffset": "NONE",
+          "align": "left",
+          "indentStart": 0,
+          "lineSpacing": 100,
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "paddingRight": 0
+        },
+        {
+          "type": "shape",
+          "objectId": "g852e09c788_0_16",
+          "x": 45,
+          "y": 188,
+          "w": 310,
+          "h": 4,
+          "rotation": 0,
+          "shape": "RECTANGLE",
+          "fillColor": "#f44336",
+          "borderColor": "none",
+          "borderWidth": 0.75,
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "paddingRight": 0
+        },
+        {
+          "type": "shape",
+          "objectId": "g852e09c788_0_17",
+          "x": 45,
+          "y": 362,
+          "w": 310,
+          "h": 4,
+          "rotation": 0,
+          "shape": "RECTANGLE",
+          "fillColor": "#f44336",
+          "borderColor": "none",
+          "borderWidth": 0.75,
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "paddingRight": 0
+        },
+        {
+          "type": "shape",
+          "objectId": "g852e09c788_0_18",
+          "x": 365,
+          "y": 188,
+          "w": 310,
+          "h": 4,
+          "rotation": 0,
+          "shape": "RECTANGLE",
+          "fillColor": "#f44336",
+          "borderColor": "none",
+          "borderWidth": 0.75,
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "paddingRight": 0
+        },
+        {
+          "type": "shape",
+          "objectId": "g852e09c788_0_19",
+          "x": 365,
+          "y": 362,
+          "w": 310,
+          "h": 4,
+          "rotation": 0,
+          "shape": "RECTANGLE",
+          "fillColor": "#f44336",
+          "borderColor": "none",
+          "borderWidth": 0.75,
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "paddingLeft": 0,
+          "paddingRight": 0
+        }
+      ],
+      "background": "#ffffff"
+    }
+  ]
+}
+
+

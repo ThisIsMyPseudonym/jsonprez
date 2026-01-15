@@ -64,8 +64,8 @@ const CONFIG = {
     MAX_TEXT_LENGTH: 10000,
     MIN_DIMENSION: 10,
     MAX_DIMENSION: 1000,
-    MIN_FONT_SIZE: 6,
-    MAX_FONT_SIZE: 200
+    MIN_FONT_SIZE: 1,
+    MAX_FONT_SIZE: 400
   },
 
   // Fake shadow presets (workaround for read-only shadow API)

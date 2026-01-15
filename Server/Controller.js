@@ -10,6 +10,13 @@
  * Serve the web app
  */
 function doGet(e) {
+  if (e.parameter && e.parameter.page === 'dev') {
+    return HtmlService.createHtmlOutputFromFile('Client/Dev')
+      .setTitle('SlidesEngine Dev Runner')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
   const template = HtmlService.createTemplateFromFile('Client/Index');
   const html = template.evaluate();
 
@@ -18,6 +25,47 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 
   return html;
+}
+
+/**
+ * Handle POST requests (API access)
+ */
+function doPost(e) {
+  // Use lock to prevent concurrency issues if multiple requests come in
+  const lock = LockService.getScriptLock();
+  lock.tryLock(30000); // Wait up to 30s
+
+  try {
+    if (!e.postData || !e.postData.contents) {
+      throw new Error('No Data');
+    }
+
+    const request = JSON.parse(e.postData.contents);
+    const action = request.action;
+    let response = {};
+
+    if (action === 'import') {
+      response = importPresentation(request.presentationId, request.rawMode);
+    } else if (action === 'generate') {
+      // support both json string and object
+      const jsonString = typeof request.json === 'string' ? request.json : JSON.stringify(request.json);
+      response = generatePresentation(jsonString);
+    } else {
+      response = { status: 'error', message: 'Unknown action' };
+    }
+
+    return ContentService.createTextOutput(JSON.stringify(response))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: error.message,
+      stack: error.stack
+    })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
@@ -75,9 +123,9 @@ function generatePresentation(jsonString) {
 
     const buildResult = buildAllRequests(json, firstSlideId, presentationId);
 
-    // 5. Execute Phase 1 (Batch Update)
+    // 5. Execute Phase 1 (Batch Update) with Retry Logic
     if (buildResult.requests.length > 0) {
-      slidesApi.batchUpdate(presentationId, buildResult.requests);
+      executeBatchWithRetryV2(presentationId, buildResult.requests);
     }
 
     // 5.5. Execute Phase 1.5 (Connections)
@@ -139,5 +187,139 @@ function importPresentation(presentationId, rawMode) {
       status: 'error',
       message: e.message
     };
+  }
+}
+
+/**
+ * Test Import for Debugging
+ */
+function testImport() {
+  const ID = '1zv6VClAWFd0m6AWsagAQaMlhC1wWScD_sd45qXHSM90';
+  const result = importPresentation(ID, false);
+  const logs = [];
+  if (result.status === 'success') {
+    const json = JSON.parse(result.json);
+    // Find all images
+    let imageCount = 0;
+    json.slides.forEach((slide, sIdx) => {
+      slide.elements.forEach((el, eIdx) => {
+        if (el.type === 'image') {
+          imageCount++;
+          const msg = `[DEBUG_IMG] Slide ${sIdx} El ${eIdx}: URL=${el.url ? el.url.substring(0, 50) + '...' : 'NULL'} Source=${el.sourceUrl}`;
+          Logger.log(msg);
+          logs.push(msg);
+        }
+      });
+    });
+    logs.push(`Found ${imageCount} images.`);
+  } else {
+    logs.push('Import Failed: ' + result.message);
+  }
+  return logs.join('\n');
+}
+
+/**
+ * Execute batch requests with retry logic for failing images
+ */
+function executeBatchWithRetryV2(presentationId, requests) {
+  let attempts = 0;
+  const maxAttempts = 5;
+
+  while (attempts < maxAttempts) {
+    try {
+      if (requests.length === 0) break;
+      slidesApi.batchUpdate(presentationId, requests);
+      break;
+    } catch (e) {
+      attempts++;
+      Logger.log('DEBUG_RETRY: Catch block entered. Attempts: ' + attempts);
+      Logger.log('DEBUG_RETRY: Error Message: ' + e.message);
+
+      // Try multiple matches. Sometimes error message is prefixed.
+      const match = e.message.match(/Invalid requests\[(\d+)\]/);
+
+      if (match) {
+        const index = parseInt(match[1], 10);
+        Logger.log('DEBUG_RETRY: Matched Index: ' + index);
+
+        if (index >= requests.length) {
+          Logger.log('DEBUG_RETRY: Index OOB. Len: ' + requests.length);
+          throw e; // Can't recover
+        }
+
+        const failReq = requests[index];
+        // Safely log keys
+        try { Logger.log('DEBUG_RETRY: FailReq Keys: ' + JSON.stringify(Object.keys(failReq))); } catch (ex) { }
+
+        // If it's an image creation error, defer it to Phase 2
+        if (failReq && (failReq.createImage || failReq.replaceImage)) { // Handle replaceImage too just in case
+          Logger.log(`API Error on Request #${index} (Image). Deferring to Phase 2 fallback.`);
+
+          // Add to deferred queue
+          // We need pageObjectId to know where to put it. 
+          // For replaceImage, we need logic. For createImage, we have elementProperties.pageObjectId.
+
+          if (failReq.createImage) {
+            const pageId = failReq.createImage.elementProperties.pageObjectId;
+            phase2Service.addDeferredImage(pageId, failReq.createImage);
+          } else {
+            // replaceImage doesn't create a new image, it replaces an existing one.
+            // We can't really "defer" it easily as insertImage creates NEW image.
+            // Just Log and Skip for now to avoid crash.
+            Logger.log('Skipping failed ReplaceImage request.');
+          }
+
+          // Remove the bad request and continue (retry loop will submit the rest)
+          requests.splice(index, 1);
+          continue;
+        } else {
+          Logger.log(`API Error on Request #${index} (NOT Image). Logic: ${JSON.stringify(failReq)}`);
+          throw e;
+        }
+      } else {
+        Logger.log('DEBUG_RETRY: No Regex Match for Invalid requests.');
+      }
+      throw e; // Non-indexable error
+    }
+  }
+}
+function executeBatchWithRetry(presentationId, requests) {
+  let attempts = 0;
+  const maxAttempts = 5; // Avoid infinite loops if multiple images fail
+
+  while (attempts < maxAttempts) {
+    try {
+      if (requests.length === 0) break;
+      slidesApi.batchUpdate(presentationId, requests);
+      break; // Success
+    } catch (e) {
+      attempts++;
+      const match = e.message.match(/Invalid requests\[(\d+)\]/);
+      if (match) {
+        const index = parseInt(match[1], 10);
+        const failReq = requests[index];
+
+        // If it's an image creation error, defer it to Phase 2
+        if (failReq && failReq.createImage) {
+          Logger.log(`API Error on Request #${index}. Deferring Image to Phase 2.`);
+
+          // Add to deferred queue
+          // We need pageObjectId to know where to put it. 
+          const pageId = failReq.createImage.elementProperties.pageObjectId;
+
+          // Capture the spec for Phase 2
+          phase2Service.addDeferredImage(pageId, failReq.createImage);
+
+          // Remove the bad request and continue (retry loop will submit the rest)
+          requests.splice(index, 1);
+          continue;
+        } else {
+          // If it's NOT an image error (e.g. text/shape), we can't auto-fix it.
+          Logger.log(`API Error on Request #${index} (NOT Image). Logic: ${JSON.stringify(failReq)}`);
+          throw e;
+        }
+      }
+      throw e; // Non-indexable error
+    }
   }
 }

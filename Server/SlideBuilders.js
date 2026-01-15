@@ -16,6 +16,91 @@ function builderLog(message, level) {
 }
 
 // ============================================================================
+// TRANSFORM HELPERS
+// ============================================================================
+
+const EMU_PER_PT = 12700;
+
+// Source presentation ID for copyGroup Phase 2 operations
+let _sourcePresentationId = null;
+
+/**
+ * Check if element has a shear transform that needs raw passthrough
+ * @param {Object} element
+ * @returns {boolean}
+ */
+function hasShearTransform(element) {
+  const ct = element.composedTransform;
+  if (!ct) return false;
+  // Check if shear values are significant (not just floating point noise)
+  return (ct.shearX && Math.abs(ct.shearX) > 0.001) ||
+         (ct.shearY && Math.abs(ct.shearY) > 0.001);
+}
+
+/**
+ * Build transform from element properties.
+ * SIMPLIFIED APPROACH: If we have the raw composedTransform from extraction,
+ * use it directly (just convert translation from EMU to PT). This avoids
+ * decomposition/recomposition errors with rotation and flips.
+ * @param {Object} element
+ * @returns {Object} Transform object for Slides API
+ */
+function buildTransformWithShear(element) {
+  const ct = element.composedTransform;
+
+  // If we have the raw transform from extraction, use it directly
+  // This is the most accurate approach - no decomposition/recomposition errors
+  if (ct && (ct.scaleX !== undefined || ct.shearX !== undefined || ct.shearY !== undefined || ct.scaleY !== undefined)) {
+    // Translation is in EMU in composedTransform, need to convert to PT
+    // Scale and shear values are dimensionless and can pass through directly
+    const EMU_PER_PT = 12700;
+    return {
+      scaleX: ct.scaleX !== undefined ? ct.scaleX : 0,
+      scaleY: ct.scaleY !== undefined ? ct.scaleY : 0,
+      shearX: ct.shearX || 0,
+      shearY: ct.shearY || 0,
+      translateX: (ct.translateX || 0) / EMU_PER_PT,
+      translateY: (ct.translateY || 0) / EMU_PER_PT,
+      unit: 'PT'
+    };
+  }
+
+  // Fallback: No raw transform available, use the standard calculation
+  // This handles JSON created by hand (not from extraction)
+  return buildTransform(
+    element.x || 0,
+    element.y || 0,
+    element.rotation || 0,
+    element.w || 100,
+    element.h || 100,
+    element.flipH,
+    element.flipV
+  );
+}
+
+/**
+ * Build size from element, using raw baseSize if available for exact passthrough.
+ * @param {Object} element
+ * @param {number} fallbackW - Fallback width in virtual units
+ * @param {number} fallbackH - Fallback height in virtual units
+ * @returns {Object} Size object for Slides API
+ */
+function buildSizeFromElement(element, fallbackW, fallbackH) {
+  const EMU_PER_PT = 12700;
+
+  // If we have the raw base size from extraction, use it directly
+  if (element.baseSize && element.baseSize.width && element.baseSize.height) {
+    return {
+      width: { magnitude: element.baseSize.width / EMU_PER_PT, unit: 'PT' },
+      height: { magnitude: element.baseSize.height / EMU_PER_PT, unit: 'PT' }
+    };
+  }
+
+  // Fallback: Use the computed w/h values (already in PT from extraction, or virtual units from manual JSON)
+  return buildSize(element.w || fallbackW, element.h || fallbackH);
+}
+
+// ============================================================================
 // HELPER BUILDERS
 // ============================================================================
 
@@ -185,8 +270,14 @@ function buildTextContentRequests(element, shapeId) {
       textStyle.fontSize = { magnitude: fontSize, unit: 'PT' };
       fields.push('fontSize');
 
-      textStyle.fontFamily = themeService.resolveThemeFont(run.fontFamily || element.fontFamily);
+      const fontFamily = themeService.resolveThemeFont(run.fontFamily || element.fontFamily);
+      textStyle.fontFamily = fontFamily;
       fields.push('fontFamily');
+
+      // DEBUG: Log font info for runs
+      Logger.log('[BUILDER:FONT] Run ' + i + ': "' + run.text.substring(0, 10).replace(/\n/g, '\\n') +
+        '" fontSize=' + run.fontSize + '->' + fontSize +
+        ' fontFamily=' + run.fontFamily + '->' + fontFamily);
 
       const textColor = themeService.resolveThemeColor(run.color || element.color || CONFIG.DEFAULTS.TEXT_COLOR);
       const rgb = themeService.hexToRgbApi(textColor);
@@ -220,7 +311,7 @@ function buildTextContentRequests(element, shapeId) {
       }
 
       if (fields.length > 0) {
-        requests.push({
+        const styleRequest = {
           updateTextStyle: {
             objectId: shapeId,
             style: textStyle,
@@ -231,7 +322,11 @@ function buildTextContentRequests(element, shapeId) {
             },
             fields: fields.join(',')
           }
-        });
+        };
+        // DEBUG: Log the actual request being sent
+        Logger.log('[BUILDER:STYLE_REQ] Run ' + i + ' range=' + currentIndex + '-' + (currentIndex + runLength) +
+          ' fontSize=' + textStyle.fontSize.magnitude + 'PT fontFamily=' + textStyle.fontFamily);
+        requests.push(styleRequest);
       }
 
       const isParagraphStart = (i === 0) || (element.textRuns[i - 1].text.endsWith('\n'));
@@ -323,6 +418,35 @@ function buildTextContentRequests(element, shapeId) {
       currentIndex += runLength;
     }
 
+    // FIX: Style the trailing default newline character
+    // When we create a TEXT_BOX, it has a default newline. When we insert text at index 0,
+    // this default newline gets pushed to the end (at index runsText.length).
+    // We need to style it to match our text, otherwise it keeps default Arial 18 styling.
+    if (element.textRuns.length > 0) {
+      const lastRun = element.textRuns[element.textRuns.length - 1];
+      const trailingFontSize = lastRun.fontSize || element.fontSize || CONFIG.DEFAULTS.FONT_SIZE;
+      const trailingFontFamily = themeService.resolveThemeFont(lastRun.fontFamily || element.fontFamily);
+
+      Logger.log('[BUILDER:TRAILING] Styling trailing newline at index ' + runsText.length +
+        ' with fontSize=' + trailingFontSize + ' fontFamily=' + trailingFontFamily);
+
+      requests.push({
+        updateTextStyle: {
+          objectId: shapeId,
+          style: {
+            fontSize: { magnitude: trailingFontSize, unit: 'PT' },
+            fontFamily: trailingFontFamily
+          },
+          textRange: {
+            type: 'FIXED_RANGE',
+            startIndex: runsText.length,
+            endIndex: runsText.length + 1
+          },
+          fields: 'fontSize,fontFamily'
+        }
+      });
+    }
+
     // CRITICAL: Push requests in the correct order
     // 1. First, add all createParagraphBullets (these can cause list bleed)
     // 2. Then, add all deleteParagraphBullets (these clean up the bleed AND can clear indentation)
@@ -403,17 +527,86 @@ function buildTextRequests(element, slideId) {
     requests.push(...buildFakeShadowRequests(element, slideId, 'RECTANGLE'));
   }
 
+  // Use raw shear transform if present, otherwise use standard rotation-based transform
+  const transformObj = buildTransformWithShear(element);
+
   requests.push({
     createShape: {
       objectId: shapeId,
       shapeType: 'TEXT_BOX',
       elementProperties: {
         pageObjectId: slideId,
-        size: buildSize(element.w || 200, element.h || 50),
-        transform: buildTransform(element.x || 0, element.y || 0, element.rotation, element.w || 200, element.h || 50)
+        size: buildSizeFromElement(element, 200, 50),
+        transform: transformObj
       }
     }
   });
+
+  // Build shape properties for text box (fill, border, vertical alignment)
+  const shapeProperties = {};
+  const fields = [];
+
+  // Fill color handling (same logic as shapes)
+  const originalFillColor = element._originalFillColor || element.fillColor;
+  const isTransparent = originalFillColor === 'transparent' || originalFillColor === 'none';
+
+  if (isTransparent) {
+    shapeProperties.shapeBackgroundFill = { propertyState: 'NOT_RENDERED' };
+    fields.push('shapeBackgroundFill');
+  } else if (element.fillColor) {
+    const fillColor = themeService.resolveThemeColor(element.fillColor);
+    const rgb = themeService.hexToRgbApi(fillColor);
+    if (rgb) {
+      shapeProperties.shapeBackgroundFill = {
+        solidFill: {
+          color: { rgbColor: rgb },
+          alpha: element.alpha !== undefined ? element.alpha : (element.fillAlpha !== undefined ? element.fillAlpha : 1)
+        }
+      };
+      fields.push('shapeBackgroundFill');
+    }
+  }
+
+  // Border handling (same logic as shapes)
+  if (element.borderColor && element.borderColor !== 'none') {
+    const borderColor = themeService.resolveThemeColor(element.borderColor);
+    const borderRgb = themeService.hexToRgbApi(borderColor);
+    if (borderRgb) {
+      const outline = {
+        outlineFill: {
+          solidFill: { color: { rgbColor: borderRgb }, alpha: element.borderAlpha !== undefined ? element.borderAlpha : 1 }
+        },
+        weight: { magnitude: (element.borderWidth || CONFIG.DEFAULTS.LINE_WEIGHT) * SCALE, unit: 'PT' },
+        propertyState: 'RENDERED'
+      };
+      if (element.borderDash) {
+        outline.dashStyle = ENUMS.DASH_STYLE_MAP[element.borderDash] || 'SOLID';
+      }
+      shapeProperties.outline = outline;
+      fields.push('outline');
+    }
+  }
+
+  // Vertical alignment (contentAlignment)
+  if (element.verticalAlign) {
+    const contentAlignmentMap = {
+      'top': 'TOP',
+      'middle': 'MIDDLE',
+      'bottom': 'BOTTOM'
+    };
+    shapeProperties.contentAlignment = contentAlignmentMap[element.verticalAlign] || 'TOP';
+    fields.push('contentAlignment');
+  }
+
+  if (fields.length > 0) {
+    requests.push({
+      updateShapeProperties: {
+        objectId: shapeId,
+        shapeProperties: shapeProperties,
+        fields: fields.join(',')
+      }
+    });
+  }
 
   requests.push(...buildTextContentRequests(element, shapeId));
 
@@ -428,11 +621,16 @@ function buildShapeRequests(element, slideId) {
   element = validateElement(element);
   const requests = [];
   const shapeId = element.objectId || generateObjectId();
-  const shapeType = ENUMS.SHAPE_TYPE_MAP[element.shape] || 'RECTANGLE';
+  // Use mapped shape type, or pass through directly if not in map (API type from extraction)
+  const shapeType = ENUMS.SHAPE_TYPE_MAP[element.shape] || element.shape || 'RECTANGLE';
+  Logger.log('[SHAPE_BUILD] Shape ' + shapeId + ' type: element.shape=' + element.shape + ' -> shapeType=' + shapeType);
 
   if (element.shadow) {
     requests.push(...buildFakeShadowRequests(element, slideId, shapeType));
   }
+
+  // Use raw shear transform if present, otherwise use standard rotation-based transform
+  const transformObj = buildTransformWithShear(element);
 
   requests.push({
     createShape: {
@@ -440,8 +638,8 @@ function buildShapeRequests(element, slideId) {
       shapeType: shapeType,
       elementProperties: {
         pageObjectId: slideId,
-        size: buildSize(element.w || 100, element.h || 100),
-        transform: buildTransform(element.x || 0, element.y || 0, element.rotation, element.w || 100, element.h || 100)
+        size: buildSizeFromElement(element, 100, 100),
+        transform: transformObj
       }
     }
   });
@@ -495,6 +693,17 @@ function buildShapeRequests(element, slideId) {
     fields.push('outline');
   }
 
+  // Vertical alignment (contentAlignment)
+  if (element.verticalAlign) {
+    const contentAlignmentMap = {
+      'top': 'TOP',
+      'middle': 'MIDDLE',
+      'bottom': 'BOTTOM'
+    };
+    shapeProperties.contentAlignment = contentAlignmentMap[element.verticalAlign] || 'TOP';
+    fields.push('contentAlignment');
+  }
+
   if (fields.length > 0) {
     requests.push({
       updateShapeProperties: {
@@ -538,7 +747,7 @@ function buildIconRequests(element, slideId) {
       elementProperties: {
         pageObjectId: slideId,
         size: buildSize(width, height),
-        transform: buildTransform(element.x || 0, element.y || 0, element.rotation, width, height)
+        transform: buildTransform(element.x || 0, element.y || 0, element.rotation, width, height, element.flipH, element.flipV)
       }
     }
   });
@@ -622,7 +831,7 @@ function buildVideoRequests(element, slideId) {
       elementProperties: {
         pageObjectId: slideId,
         size: buildSize(element.w || 300, element.h || 200),
-        transform: buildTransform(element.x || 0, element.y || 0, element.rotation, element.w || 300, element.h || 200)
+        transform: buildTransform(element.x || 0, element.y || 0, element.rotation, element.w || 300, element.h || 200, element.flipH, element.flipV)
       }
     }
   });
@@ -649,16 +858,81 @@ function buildVideoRequests(element, slideId) {
 }
 
 /**
- * Build requests for IMAGE element
+ * Determine if an image URL requires SlidesApp routing (blob fetch).
+ *
+ * BACKGROUND:
+ * When extracting images from Google Slides, the API returns `contentUrl`
+ * pointing to googleusercontent.com. These URLs require OAuth authentication
+ * and FAIL when used with API `createImage` (returns "problem retrieving image").
+ *
+ * Images with public `sourceUrl` (original upload URL) can use the API directly.
+ * Images without sourceUrl (or with Google-internal sourceUrl) must be routed
+ * through SlidesApp, which can fetch them using the script's OAuth token.
+ *
+ * ROUTING DECISION:
+ * - Public sourceUrl exists → Use API createImage (fast, preserves all properties)
+ * - Google-internal URL only → Route to Phase 2 SlidesApp processing
+ *
+ * See SlidesApiAdapter.js executePhase2() for the hybrid implementation that
+ * handles routed images with proper crop and transform preservation.
+ *
+ * @param {Object} element - Image element with url and optional sourceUrl
+ * @returns {boolean} True if SlidesApp routing is needed
  */
-function buildImageRequests(element, slideId) {
+function needsSlidesAppRouting(element) {
+  const url = element.url || '';
+  const sourceUrl = element.sourceUrl || '';
+
+  // If we have a valid public sourceUrl, prefer API path
+  if (sourceUrl && !sourceUrl.includes('googleusercontent.com')) {
+    return false;
+  }
+
+  // Google internal URLs require blob fetch via SlidesApp
+  if (url.includes('googleusercontent.com') ||
+    url.includes('.google.com/') ||
+    url.startsWith('https://lh')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Build requests for IMAGE element
+ * @param {Object} element - Image element data
+ * @param {string} slideId - Target slide object ID
+ * @param {number} slideIndex - Index of the slide (for Phase 2 routing)
+ * @param {number} elementIndex - Original index of this element (for z-order)
+ * @param {number} totalElements - Total elements on the slide (for z-order)
+ * @returns {Object} { requests: Array, objectId: string, isDeferred?: boolean }
+ */
+function buildImageRequests(element, slideId, slideIndex, elementIndex, totalElements) {
   element = validateElement(element);
   const requests = [];
   const imageId = element.objectId || generateObjectId();
 
+  // Proactive SlidesApp routing for Google-internal URLs
+  builderLog('Image URL check: ' + (element.url || 'NO_URL').substring(0, 80) + ' | sourceUrl: ' + (element.sourceUrl || 'NONE'));
+  if (needsSlidesAppRouting(element)) {
+    builderLog('Image ROUTED to SlidesApp: ' + (element.url || '').substring(0, 50) + '... (index ' + elementIndex + '/' + totalElements + ')');
+    phase2Service.addProactiveImage(slideIndex, {
+      objectId: imageId,
+      slideId: slideId,
+      element: element,  // Full element with crop, recolor, etc.
+      elementIndex: elementIndex,
+      totalElements: totalElements
+    });
+    return { requests: [], objectId: imageId, isDeferred: true };
+  }
+
   if (element.shadow) {
     requests.push(...buildFakeShadowRequests(element, slideId, 'RECTANGLE'));
   }
+
+  // Use unified passthrough for size and transform
+  const sizeObj = buildSizeFromElement(element, 200, 200);
+  const transformObj = buildTransformWithShear(element);
 
   requests.push({
     createImage: {
@@ -666,11 +940,60 @@ function buildImageRequests(element, slideId) {
       url: element.url || 'https://via.placeholder.com/800x600?text=Image+Not+Found',
       elementProperties: {
         pageObjectId: slideId,
-        size: buildSize(element.w || 200, element.h || 200),
-        transform: buildTransform(element.x || 0, element.y || 0, element.rotation, element.w || 200, element.h || 200)
+        size: sizeObj,
+        transform: transformObj
       }
     }
   });
+
+  if (element.crop) {
+    requests.push({
+      updateImageProperties: {
+        objectId: imageId,
+        imageProperties: {
+          cropProperties: {
+            leftOffset: element.crop.left || 0,
+            rightOffset: element.crop.right || 0,
+            topOffset: element.crop.top || 0,
+            bottomOffset: element.crop.bottom || 0,
+            angle: element.crop.angle || 0
+          }
+        },
+        fields: 'cropProperties'
+      }
+    });
+  }
+
+  if (element.recolor) {
+    requests.push({
+      updateImageProperties: {
+        objectId: imageId,
+        imageProperties: {
+          recolor: element.recolor
+        },
+        fields: 'recolor'
+      }
+    });
+  }
+
+  // Apply corrections
+  // Apply corrections - REMOVED: API does not support updating brightness/contrast
+  /*
+  if (element.brightness !== undefined || element.contrast !== undefined || element.transparency !== undefined) {
+    const props = {};
+    if (element.brightness !== undefined) props.brightness = element.brightness;
+    if (element.contrast !== undefined) props.contrast = element.contrast;
+    if (element.transparency !== undefined) props.transparency = element.transparency;
+    
+    requests.push({
+      updateImageProperties: {
+        objectId: imageId,
+        imageProperties: props,
+        fields: Object.keys(props).join(',')
+      }
+    });
+  }
+  */
 
   if (element.borderColor || element.borderWidth) {
     const outline = {
@@ -697,7 +1020,7 @@ function buildImageRequests(element, slideId) {
     if (linkRequest) requests.push(linkRequest);
   }
 
-  return requests;
+  return { requests, objectId: imageId };
 }
 
 /**
@@ -724,6 +1047,70 @@ function buildTableRequests(element, slideId) {
       }
     }
   });
+
+  // Apply row heights if provided
+  // Row heights are now proportionally scaled from extraction to preserve relative sizes
+  // (e.g., taller header row, shorter data rows)
+  builderLog('Table rowHeights received: ' + JSON.stringify(element.rowHeights));
+  let rowHeightRequestCount = 0;
+  if (element.rowHeights && Array.isArray(element.rowHeights)) {
+    builderLog('Processing ' + element.rowHeights.length + ' row heights for table with ' + rows + ' rows');
+    element.rowHeights.forEach((height, rowIndex) => {
+      // Only apply heights for rows that exist in the table
+      if (rowIndex >= rows) {
+        builderLog('Skipping row ' + rowIndex + ' - exceeds table row count (' + rows + ')');
+        return;
+      }
+      if (height !== null && height !== undefined) {
+        requests.push({
+          updateTableRowProperties: {
+            objectId: tableId,
+            rowIndices: [rowIndex],
+            tableRowProperties: {
+              minRowHeight: { magnitude: height, unit: 'PT' }
+            },
+            fields: 'minRowHeight'
+          }
+        });
+        rowHeightRequestCount++;
+      }
+    });
+  }
+  builderLog('Generated ' + rowHeightRequestCount + ' row height requests for table');
+
+  // Apply column widths if provided
+  // Google Slides API requires minimum column width of 32pt (406400 EMU)
+  const MIN_COLUMN_WIDTH_PT = 32;
+  builderLog('Table columnWidths received: ' + JSON.stringify(element.columnWidths));
+  let columnWidthRequestCount = 0;
+  if (element.columnWidths && Array.isArray(element.columnWidths)) {
+    builderLog('Processing ' + element.columnWidths.length + ' column widths for table with ' + cols + ' columns');
+    element.columnWidths.forEach((width, colIndex) => {
+      // Only apply widths for columns that exist in the table
+      if (colIndex >= cols) {
+        builderLog('Skipping column ' + colIndex + ' - exceeds table column count (' + cols + ')');
+        return;
+      }
+      if (width !== null && width !== undefined) {
+        const effectiveWidth = Math.max(width, MIN_COLUMN_WIDTH_PT);
+        if (effectiveWidth !== width) {
+          builderLog('Column ' + colIndex + ' width ' + width + 'pt below minimum, using ' + effectiveWidth + 'pt');
+        }
+        requests.push({
+          updateTableColumnProperties: {
+            objectId: tableId,
+            columnIndices: [colIndex],
+            tableColumnProperties: {
+              columnWidth: { magnitude: effectiveWidth, unit: 'PT' }
+            },
+            fields: 'columnWidth'
+          }
+        });
+        columnWidthRequestCount++;
+      }
+    });
+  }
+  builderLog('Generated ' + columnWidthRequestCount + ' column width requests for table');
 
   data.forEach((row, r) => {
     row.forEach((cellValue, c) => {
@@ -755,6 +1142,9 @@ function buildTableRequests(element, slideId) {
         if (cellValue.align) {
           cellStyle.contentAlignment = (cellValue.align === 'center') ? 'MIDDLE' : (cellValue.align === 'bottom' ? 'BOTTOM' : 'TOP');
         }
+        // NOTE: Cell padding (paddingTop, paddingBottom, etc.) is NOT settable via
+        // updateTableCellProperties - the API doesn't support it. Padding is read-only.
+        // Cell borders are handled separately via updateTableBorderProperties
       } else {
         text = String(cellValue);
       }
@@ -832,20 +1222,35 @@ function buildTableRequests(element, slideId) {
           }
         }
 
-        if (typeof cellValue === 'object' && cellValue.align) {
-          let alignType = 'START';
-          if (cellValue.align === 'center') alignType = 'CENTER';
-          else if (cellValue.align === 'right') alignType = 'END';
-          else if (cellValue.align === 'justify') alignType = 'JUSTIFIED';
+        // Apply paragraph style (alignment and line spacing)
+        if (typeof cellValue === 'object' && (cellValue.align || cellValue.lineSpacing)) {
+          const paraStyle = {};
+          const fields = [];
 
-          requests.push({
-            updateParagraphStyle: {
-              objectId: tableId,
-              cellLocation: { rowIndex: r, columnIndex: c },
-              style: { alignment: alignType },
-              fields: 'alignment'
-            }
-          });
+          if (cellValue.align) {
+            let alignType = 'START';
+            if (cellValue.align === 'center') alignType = 'CENTER';
+            else if (cellValue.align === 'right') alignType = 'END';
+            else if (cellValue.align === 'justify') alignType = 'JUSTIFIED';
+            paraStyle.alignment = alignType;
+            fields.push('alignment');
+          }
+
+          if (cellValue.lineSpacing) {
+            paraStyle.lineSpacing = cellValue.lineSpacing;
+            fields.push('lineSpacing');
+          }
+
+          if (fields.length > 0) {
+            requests.push({
+              updateParagraphStyle: {
+                objectId: tableId,
+                cellLocation: { rowIndex: r, columnIndex: c },
+                style: paraStyle,
+                fields: fields.join(',')
+              }
+            });
+          }
         }
       }
 
@@ -889,6 +1294,61 @@ function buildTableRequests(element, slideId) {
     });
   });
 
+  // Generate border requests using updateTableBorderProperties
+  // This must be done separately as borders use a different API
+  let borderRequestCount = 0;
+  data.forEach((row, r) => {
+    row.forEach((cellValue, c) => {
+      if (typeof cellValue === 'object' && cellValue.borders) {
+        if (r === 0 && c === 0) {
+          builderLog('First cell borders: ' + JSON.stringify(cellValue.borders));
+        }
+        const borderPositions = {
+          top: 'TOP',
+          bottom: 'BOTTOM',
+          left: 'LEFT',
+          right: 'RIGHT'
+        };
+
+        Object.keys(cellValue.borders).forEach(side => {
+          const border = cellValue.borders[side];
+          const position = borderPositions[side];
+          if (border && position) {
+            const borderProps = {
+              weight: { magnitude: border.weight || 1, unit: 'PT' },
+              dashStyle: border.dashStyle || 'SOLID'
+            };
+
+            if (border.color) {
+              const hex = themeService.resolveThemeColor(border.color);
+              const rgb = themeService.hexToRgbApi(hex);
+              if (rgb) {
+                borderProps.tableBorderFill = { solidFill: { color: { rgbColor: rgb } } };
+              }
+            }
+
+            requests.push({
+              updateTableBorderProperties: {
+                objectId: tableId,
+                tableRange: {
+                  location: { rowIndex: r, columnIndex: c },
+                  rowSpan: 1,
+                  columnSpan: 1
+                },
+                borderPosition: position,
+                tableBorderProperties: borderProps,
+                fields: 'tableBorderFill,weight,dashStyle'
+              }
+            });
+            borderRequestCount++;
+          }
+        });
+      }
+    });
+  });
+
+  builderLog('Generated ' + borderRequestCount + ' border requests for table');
+  builderLog('[REQUEST_ORDER] Total table requests: ' + requests.length + ' (row heights at start, then cell content, then borders)');
   return requests;
 }
 
@@ -953,58 +1413,95 @@ function buildLineRequests(element, slideId) {
     return { requests: segments, deferredConnections: [], objectId: lineId };
   }
 
-  const x = parseFloat(element.x || 0);
-  const y = parseFloat(element.y || 0);
-  const w = parseFloat(element.w !== undefined ? element.w : 100);
-  const h = parseFloat(element.h !== undefined ? element.h : 0);
-  const ex1 = parseFloat(element.x1);
-  const ey1 = parseFloat(element.y1);
-  const ex2 = parseFloat(element.x2);
-  const ey2 = parseFloat(element.y2);
+  // RAW TRANSFORM PASSTHROUGH: If we have composedTransform and baseSize from extraction,
+  // use them directly for exact reproduction. This avoids position calculation errors
+  // that occur with grouped elements due to rotation adjustment.
+  const ct = element.composedTransform;
+  const bs = element.baseSize;
+  const EMU_PER_PT = 12700;
 
-  const x1 = (!isNaN(ex1) ? ex1 : x) * SCALE;
-  const y1 = (!isNaN(ey1) ? ey1 : y) * SCALE;
-  const x2 = (!isNaN(ex2) ? ex2 : (x + w)) * SCALE;
-  const y2 = (!isNaN(ey2) ? ey2 : (y + h)) * SCALE;
+  if (ct && bs && bs.width !== undefined && bs.height !== undefined) {
+    // Use raw values - most accurate for grouped elements
+    const sizeObj = {
+      width: { magnitude: bs.width / EMU_PER_PT, unit: 'PT' },
+      height: { magnitude: bs.height / EMU_PER_PT, unit: 'PT' }
+    };
+    const transformObj = {
+      scaleX: ct.scaleX !== undefined ? ct.scaleX : 1,
+      scaleY: ct.scaleY !== undefined ? ct.scaleY : 1,
+      shearX: ct.shearX || 0,
+      shearY: ct.shearY || 0,
+      translateX: (ct.translateX || 0) / EMU_PER_PT,
+      translateY: (ct.translateY || 0) / EMU_PER_PT,
+      unit: 'PT'
+    };
 
-  let width = Math.abs(x2 - x1);
-  let height = Math.abs(y2 - y1);
-
-  if (isNaN(width)) width = 100;
-  if (isNaN(height)) height = 0;
-
-  if (width < 0.1 && height < 0.1) {
-    width = 1;
-    height = 0;
-  }
-
-  const safeW = width;
-  const safeH = height;
-
-  const tx = Math.min(x1, x2);
-  const ty = Math.min(y1, y2);
-
-  const isAntiDiagonal = (x2 > x1 && y2 < y1) || (x2 < x1 && y2 > y1);
-
-  let finalScaleY = 1;
-  let finalTranslateY = ty;
-
-  if (isAntiDiagonal) {
-    finalScaleY = -1;
-    finalTranslateY = ty + safeH;
-  }
-
-  requests.push({
-    createLine: {
-      objectId: lineId,
-      lineCategory: 'STRAIGHT',
-      elementProperties: {
-        pageObjectId: slideId,
-        size: { width: { magnitude: safeW, unit: 'PT' }, height: { magnitude: safeH, unit: 'PT' } },
-        transform: { scaleX: 1, scaleY: finalScaleY, translateX: tx, translateY: finalTranslateY, unit: 'PT' }
+    requests.push({
+      createLine: {
+        objectId: lineId,
+        lineCategory: 'STRAIGHT',
+        elementProperties: {
+          pageObjectId: slideId,
+          size: sizeObj,
+          transform: transformObj
+        }
       }
+    });
+  } else {
+    // Fallback: Compute from x, y, w, h (for manually created JSON or legacy data)
+    const x = parseFloat(element.x || 0);
+    const y = parseFloat(element.y || 0);
+    const w = parseFloat(element.w !== undefined ? element.w : 100);
+    const h = parseFloat(element.h !== undefined ? element.h : 0);
+    const ex1 = parseFloat(element.x1);
+    const ey1 = parseFloat(element.y1);
+    const ex2 = parseFloat(element.x2);
+    const ey2 = parseFloat(element.y2);
+
+    const x1 = (!isNaN(ex1) ? ex1 : x) * SCALE;
+    const y1 = (!isNaN(ey1) ? ey1 : y) * SCALE;
+    const x2 = (!isNaN(ex2) ? ex2 : (x + w)) * SCALE;
+    const y2 = (!isNaN(ey2) ? ey2 : (y + h)) * SCALE;
+
+    let width = Math.abs(x2 - x1);
+    let height = Math.abs(y2 - y1);
+
+    if (isNaN(width)) width = 100;
+    if (isNaN(height)) height = 0;
+
+    if (width < 0.1 && height < 0.1) {
+      width = 1;
+      height = 0;
     }
-  });
+
+    const safeW = width;
+    const safeH = height;
+
+    const tx = Math.min(x1, x2);
+    const ty = Math.min(y1, y2);
+
+    const isAntiDiagonal = (x2 > x1 && y2 < y1) || (x2 < x1 && y2 > y1);
+
+    let finalScaleY = 1;
+    let finalTranslateY = ty;
+
+    if (isAntiDiagonal) {
+      finalScaleY = -1;
+      finalTranslateY = ty + safeH;
+    }
+
+    requests.push({
+      createLine: {
+        objectId: lineId,
+        lineCategory: 'STRAIGHT',
+        elementProperties: {
+          pageObjectId: slideId,
+          size: { width: { magnitude: safeW, unit: 'PT' }, height: { magnitude: safeH, unit: 'PT' } },
+          transform: { scaleX: 1, scaleY: finalScaleY, translateX: tx, translateY: finalTranslateY, unit: 'PT' }
+        }
+      }
+    });
+  }
 
   const style = {};
   const fields = [];
@@ -1192,7 +1689,7 @@ function buildSheetsChartRequests(element, slideId) {
 /**
  * Main element request dispatcher
  */
-function buildElementRequests(element, slideId, slideIndex, elementIndex) {
+function buildElementRequests(element, slideId, slideIndex, elementIndex, totalElements) {
   try {
     let requests = [];
     let spreadsheetIds = [];
@@ -1214,8 +1711,14 @@ function buildElementRequests(element, slideId, slideIndex, elementIndex) {
         buildChartRequests(element, slideId, slideIndex);
         break;
       case 'image':
-        requests = buildImageRequests(element, slideId);
-        if (requests.length > 0 && requests[0].createImage) objectId = requests[0].createImage.objectId;
+        const imageResult = buildImageRequests(element, slideId, slideIndex, elementIndex, totalElements);
+        if (imageResult.isDeferred) {
+          // Image routed to Phase 2 SlidesApp, no API requests
+          objectId = imageResult.objectId;
+        } else {
+          requests = imageResult.requests;
+          objectId = imageResult.objectId;
+        }
         break;
       case 'table':
         requests = buildTableRequests(element, slideId);
@@ -1258,7 +1761,7 @@ function buildElementRequests(element, slideId, slideIndex, elementIndex) {
 
         if (element.elements && element.elements.length > 0) {
           element.elements.forEach((child, idx) => {
-            const childResult = buildElementRequests(child, slideId, slideIndex, elementIndex + '_' + idx);
+            const childResult = buildElementRequests(child, slideId, slideIndex, elementIndex + '_' + idx, totalElements);
             requests.push(...childResult.requests); // Add child creation logic to batch
             deferredConnections.push(...(childResult.deferredConnections || []));
 
@@ -1280,6 +1783,26 @@ function buildElementRequests(element, slideId, slideIndex, elementIndex) {
           });
           objectId = groupId;
         }
+        break;
+      case 'copyGroup':
+        // Queue this group to be copied from source presentation in Phase 2
+        if (!_sourcePresentationId) {
+          Logger.log('[COPYGROUP] ERROR: No source presentation ID available for copyGroup');
+          break;
+        }
+        Logger.log('[COPYGROUP] Queueing group ' + element.sourceObjectId + ' for copy from source pres ' + _sourcePresentationId + ' (slide ' + element.sourceSlideIndex + ')');
+        phase2Service.addCopyGroup(slideIndex, {
+          sourcePresentationId: _sourcePresentationId,
+          sourceObjectId: element.sourceObjectId,
+          sourceSlideIndex: element.sourceSlideIndex,
+          x: element.x,
+          y: element.y,
+          w: element.w,
+          h: element.h,
+          reason: element.reason,
+          elementIndex: elementIndex,       // For z-order positioning
+          totalElements: totalElements      // For z-order positioning
+        });
         break;
       case 'unsupported':
         Logger.log('Skipping unsupported element: ' + (element.objectId || 'unknown'));
@@ -1311,6 +1834,12 @@ function buildAllRequests(json, firstSlideId, presentationId) {
   builderLog('=== GENERATION START [DEBUG CANARY MARKER-FIRST-FIX] ===');
   builderLog('Total slides: ' + (json.slides ? json.slides.length : 0));
   builderLog('Presentation ID: ' + presentationId);
+
+  // Store source presentation ID for copyGroup Phase 2 operations
+  _sourcePresentationId = json.config && json.config.sourcePresentationId ? json.config.sourcePresentationId : null;
+  if (_sourcePresentationId) {
+    builderLog('Source presentation ID for copyGroup: ' + _sourcePresentationId);
+  }
 
   const requests = [];
   const spreadsheetIds = [];
@@ -1368,11 +1897,13 @@ function buildAllRequests(json, firstSlideId, presentationId) {
     }
 
     if (slide.elements) {
+      const totalElements = slide.elements.length;
       slide.elements.forEach((el, idx) => { el._originalIndex = idx; });
       slide.elements.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
 
       slide.elements.forEach((element, idx) => {
-        const result = buildElementRequests(element, slideId, slideIndex, element._originalIndex);
+        // Pass sorted position (idx) for z-order calculations - elements with higher idx are at front
+        const result = buildElementRequests(element, slideId, slideIndex, idx, totalElements);
 
         if (result.requests) requests.push(...result.requests);
         if (result.spreadsheetIds) spreadsheetIds.push(...result.spreadsheetIds);
